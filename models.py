@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class LSTMSimilarity(nn.Module):
     
     def __init__(self, input_size=256, hidden_size=256, num_layers=2):

@@ -1,6 +1,8 @@
-import numpy as np
-import kaldi_io
 import os
+
+import kaldi_io
+import numpy as np
+
 
 def read_xvec(file):
     return kaldi_io.read_vec_flt(file)
@@ -50,7 +52,7 @@ def assign_overlaps(events0, events1, events1_labels):
     return events0_labels
         
 def segment_labels(segments, rttm, xvectorscp):
-    segment_cols = load_n_col(segs,numpy=True)
+    segment_cols = load_n_col(segments,numpy=True)
     rttm_cols = load_n_col(rttm,numpy=True)
     vec_utts, vec_paths = load_n_col(xvectorscp, numpy=True)
     
@@ -133,4 +135,4 @@ class dloader:
             p = np.random.permutation(len(batched_feats))
             batched_feats, batched_labels = batched_feats[p], batched_labels[p]
             for feats, labels in zip(batched_feats, batched_labels):
-                yield feats, labels   
+                yield feats, labels

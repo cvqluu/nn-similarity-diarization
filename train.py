@@ -3,18 +3,20 @@ import glob
 import os
 import shutil
 import time
-from pprint import pprint
 from collections import OrderedDict
+from pprint import pprint
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from data_io import dloader
 from models import LSTMSimilarity
 from tensorboardX import SummaryWriter
-from data_io import dloader
+from torch.nn.utils.rnn import (PackedSequence, pack_padded_sequence,
+                                pad_sequence)
 from tqdm import tqdm
-from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence, PackedSequence
+
 
 def train():
     use_cuda = not args.no_cuda and torch.cuda.is_available()
