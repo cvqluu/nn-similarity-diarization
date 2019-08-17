@@ -151,7 +151,9 @@ class dloader:
                 if len(labels) <= self.max_len:
                     yield pmatrix, plabels
                 else:
-                    batched_feats, batched_labels = batch_matrix(pmatrix, plabels)
+                    factors = np.arange(2, 10)
+                    factor = np.min(factors[np.argwhere(len(labels)/factors < self.max_len).flatten()])
+                    batched_feats, batched_labels = batch_matrix(pmatrix, plabels, factor=factor)
                     for feats, labels in zip(batched_feats, batched_labels):
                         yield feats, labels
             else:

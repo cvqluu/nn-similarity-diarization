@@ -11,10 +11,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from data_io import dloader
-from models import LSTMSimilarity
+from models import TransformerSim, subsequent_mask
 from tensorboardX import SummaryWriter
-from torch.nn.utils.rnn import (PackedSequence, pack_padded_sequence,
-                                pad_sequence)
 from tqdm import tqdm
 
 
@@ -30,8 +28,9 @@ def train():
     np.random.seed(seed=args.seed)
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    writer = SummaryWriter(comment='bilstm_sim')
-    model = LSTMSimilarity()
+    writer = SummaryWriter(comment='transformer_sim')
+    model = TransformerSim()
+    # model = nn.DataParallel(model)
     model.to(device)
     model.train()
 
@@ -53,7 +52,7 @@ def train():
         model.load_state_dict(torch.load(model_epoch_filename))
 
     
-    optimizer = torch.optim.SGD([{'params': model.parameters()}], 
+    optimizer = torch.optim.Adam([{'params': model.parameters()}], 
                                         lr=args.lr)
     
     print('Scheduler to step LR every {} epochs'.format(args.scheduler_period))
@@ -75,11 +74,12 @@ def train():
             iterations += 1
 
             feats = torch.FloatTensor(feats).to(device)
-            labels = torch.FloatTensor(labels).to(device)
-
-            out = model(feats)
+            labels = torch.LongTensor(labels).to(device)
+            label_embeds = model.out_embed(labels)
+            tgt_mask = subsequent_mask(labels.shape[0]).to(device)
+            out = model(feats, label_embeds, tgt_mask=tgt_mask)
             
-            loss = criterion(out.flatten(), labels.flatten())
+            loss = criterion(out.flatten(), labels.flatten().float())
             optimizer.zero_grad()
 
             loss.backward()
@@ -87,7 +87,7 @@ def train():
 
             total_loss += loss.item()
             torch.cuda.empty_cache()
-            if batch_idx % 5 == 0:
+            if batch_idx % 1 == 0:
                 msg = "{}\tEpoch:{}[{}/{}], Loss:{:.4f} TLoss:{:.4f}, ({})".format(time.ctime(), epoch+1,
                     batch_idx+1, len(dl), loss.item(), total_loss / (batch_idx + 1), feats.shape)
                 print(msg)
@@ -114,19 +114,19 @@ def train():
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Train a speaker change lstm using pytorch')
+    parser = argparse.ArgumentParser(description='Transformer similarity scoring')
     parser.add_argument('--epochs', type=int, default=200,
                         help='number of epochs to train (default: 3)')
-    parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
+    parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
                         help='learning rate (default: 1e-4)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
     parser.add_argument('--seed', type=int, default=1234, metavar='S',
                         help='random seed (default: 1)')
-    parser.add_argument('--model-dir', type=str, default='./exp/lstm_sim/',
+    parser.add_argument('--max-len', type=int, default=300,
+                        help='max len')
+    parser.add_argument('--model-dir', type=str, default='./exp/transformer_sim/',
                         help='Saved model paths')
-    parser.add_argument('--model-type', type=str, default='lstm',
-                        help='Model type')
     parser.add_argument('--scheduler-period', type=int, default=40,
                         help='Scheduler period (default: 10)')
     parser.add_argument('--checkpoint-interval', type=int, default=1,
@@ -138,8 +138,6 @@ def parse_args():
     parser.add_argument('--pretrain', action='store_true', default=False,
                             help='Will try and load weights that have been trained on another model')
     parser.add_argument('--epoch-resume', type=int, default=None, help='Resume from a chosen epoch')
-    parser.add_argument('--max-len', type=int, default=300,
-                        help='max len')
     args = parser.parse_args()
     args._start_time = time.ctime()
     args.log_file = os.path.join(args.model_dir, 'exp_out.log')
@@ -173,5 +171,5 @@ if __name__ == "__main__":
     rttm = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome2/ref.rttm'
     segs = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome2/segments'
     xvec_scp = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome2/xvector.scp'
-    dl = dloader(segs, rttm, xvec_scp, concat=True, max_len=args.max_len)
+    dl = dloader(segs, rttm, xvec_scp, max_len=args.max_len, concat=True)
     train()

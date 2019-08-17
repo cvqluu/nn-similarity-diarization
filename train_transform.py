@@ -72,7 +72,6 @@ def train():
 
             feats = torch.FloatTensor(feats).to(device).unsqueeze(0)
             labels = torch.FloatTensor(labels).to(device)
-            print(feats.shape, labels.shape)
             out = model(feats)
             
             loss = criterion(out.flatten(), labels.flatten())
