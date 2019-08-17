@@ -2,7 +2,8 @@ import os
 
 import kaldi_io
 import numpy as np
-
+from sklearn.metrics import pairwise_distances
+from sklearn.preprocessing import LabelEncoder
 
 def read_xvec(file):
     return kaldi_io.read_vec_flt(file)
@@ -60,7 +61,7 @@ def segment_labels(segments, rttm, xvectorscp):
     vec_paths = change_base_paths(vec_paths, new_base_path=os.path.dirname(xvectorscp))
 
     rttm_cols.append(rttm_cols[3].astype(float) + rttm_cols[4].astype(float))
-    recording_ids = sorted(set(rttm_cols[1]))
+    recording_ids = sorted(set(segment_cols[1]))
     events0 = np.array(segment_cols[2:4]).astype(float).transpose()
     events1 = np.vstack([rttm_cols[3].astype(float), rttm_cols[-1]]).transpose()
     
@@ -99,6 +100,10 @@ def pairwise_cat_matrix(xvecs, labels):
         label_matrix.append(label_row)
     return np.array(matrix), np.array(label_matrix)
 
+def sim_matrix_target(labels):
+    le = LabelEncoder()
+    dist = 1.0 - pairwise_distances(le.fit_transform(labels)[:,np.newaxis], metric='hamming')
+    return dist
 
 def batch_matrix(xvecpairs, labels, factor=2):
     remainder = len(labels) % factor
@@ -119,20 +124,36 @@ def batch_matrix(xvecpairs, labels, factor=2):
 
 class dloader:
     
-    def __init__(self, segs, rttm, xvec_scp):
+    def __init__(self, segs, rttm, xvec_scp, max_len=400, concat=True):
         assert os.path.isfile(segs)
         assert os.path.isfile(rttm)
         assert os.path.isfile(xvec_scp)
         self.ids, self.rec_batches = segment_labels(segs, rttm, xvec_scp)
+        self.lengths = [len(batch[0]) for batch in self.rec_batches]
+        self.first_rec = np.argmax(self.lengths)
+        self.max_len = max_len
+        self.concat = concat
     
+    def __len__(self):
+        return len(self.ids)
+        
     def get_batches(self):
-        np.random.shuffle(self.rec_batches)
-        for rec_batch in self.rec_batches:
-            utts, labels, paths = rec_batch
+        rec_order = np.arange(len(self.rec_batches))
+        np.random.shuffle(rec_order)
+        first_rec = np.argwhere(rec_order == self.first_rec).flatten()
+        rec_order[0], rec_order[first_rec] = rec_order[first_rec], rec_order[0]
+
+        for i in rec_order:
+            utts, labels, paths = self.rec_batches[i]
             xvecs = np.array([read_xvec(file) for file in paths])
-            pmatrix, plabels = pairwise_cat_matrix(xvecs, labels)
-            batched_feats, batched_labels = batch_matrix(pmatrix, plabels)
-            p = np.random.permutation(len(batched_feats))
-            batched_feats, batched_labels = batched_feats[p], batched_labels[p]
-            for feats, labels in zip(batched_feats, batched_labels):
-                yield feats, labels
+            if self.concat:
+                pmatrix, plabels = pairwise_cat_matrix(xvecs, labels)
+                if len(labels) <= self.max_len:
+                    yield pmatrix, plabels
+                else:
+                    batched_feats, batched_labels = batch_matrix(pmatrix, plabels)
+                    for feats, labels in zip(batched_feats, batched_labels):
+                        yield feats, labels
+            else:
+                labels = sim_matrix_target(labels)
+                yield xvecs, labels

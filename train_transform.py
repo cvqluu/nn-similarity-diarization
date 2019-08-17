@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from data_io import dloader
-from models import LSTMSimilarity
+from models import LSTMTransform
 from tensorboardX import SummaryWriter
 from torch.nn.utils.rnn import (PackedSequence, pack_padded_sequence,
                                 pad_sequence)
@@ -31,7 +31,7 @@ def train():
     device = torch.device("cuda" if use_cuda else "cpu")
 
     writer = SummaryWriter(comment='bilstm_sim')
-    model = LSTMSimilarity()
+    model = LSTMTransform()
     model.to(device)
     model.train()
 
@@ -70,9 +70,9 @@ def train():
         for batch_idx, (feats, labels) in enumerate(dl.get_batches()):
             iterations += 1
 
-            feats = torch.FloatTensor(feats).to(device)
+            feats = torch.FloatTensor(feats).to(device).unsqueeze(0)
             labels = torch.FloatTensor(labels).to(device)
-
+            print(feats.shape, labels.shape)
             out = model(feats)
             
             loss = criterion(out.flatten(), labels.flatten())
@@ -167,5 +167,5 @@ if __name__ == "__main__":
     rttm = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome2/ref.rttm'
     segs = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome2/segments'
     xvec_scp = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome2/xvector.scp'
-    dl = dloader(segs, rttm, xvec_scp)
+    dl = dloader(segs, rttm, xvec_scp, concat=False)
     train()
