@@ -64,6 +64,27 @@ class TransformerSim(nn.Module):
         x = self.tf.encoder(src)
         return x
 
+class XTransformer(nn.Module):
+
+    def __init__(self, d_model=128, nhead=4, num_encoder_layers=3, dim_feedforward=1024):
+        super(XTransformer, self).__init__()
+
+        self.tf = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward), num_encoder_layers)
+        self.fc1 = nn.Linear(d_model, d_model)
+        self.nl = nn.ReLU(inplace=True)
+        self.fc2 = nn.Linear(d_model, d_model)
+
+        self.pdist = pCosineSim()
+    
+    def forward(self, src):
+        x = self.tf(src)
+        x = x.squeeze(1)
+        x = self.fc1(x)
+        x = self.nl(x)
+        x = self.fc2(x)
+        sim = self.pdist(x)
+        return sim
+
 
 class LSTMTransform(nn.Module):
 

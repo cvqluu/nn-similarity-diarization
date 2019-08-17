@@ -157,5 +157,14 @@ class dloader:
                     for feats, labels in zip(batched_feats, batched_labels):
                         yield feats, labels
             else:
-                labels = sim_matrix_target(labels)
-                yield xvecs, labels
+                # labels = sim_matrix_target(labels).flatten()
+                assert len(labels) == len(xvecs)
+                if len(labels) <= self.max_len:
+                    yield xvecs, labels
+                else:
+                    factors = np.arange(2,4)
+                    factor = np.min(factors[np.argwhere(len(labels)/factors < self.max_len).flatten()])
+                    batched_feats = np.array_split(xvecs, factor)
+                    batched_labels = np.array_split(labels, factor)
+                    for feats, labels in zip(batched_feats, batched_labels):
+                        yield feats, labels
