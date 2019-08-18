@@ -53,7 +53,8 @@ def assign_overlaps(events0, events1, events1_labels):
     return events0_labels
         
 def segment_labels(segments, rttm, xvectorscp):
-    segment_cols = load_n_col(segments,numpy=True)
+    segment_cols = load_n_col(segments, numpy=True)
+    segment_rows = np.array(list(zip(*segment_cols)))
     rttm_cols = load_n_col(rttm,numpy=True)
     vec_utts, vec_paths = load_n_col(xvectorscp, numpy=True)
     
@@ -75,7 +76,7 @@ def segment_labels(segments, rttm, xvectorscp):
         ev1_labels = rttm_cols[7][rttm_indexes]
         ev0_labels = assign_overlaps(ev0, ev1, ev1_labels)
         ev0_labels = ['{}_{}'.format(rec_id, l) for l in ev0_labels]
-        batch = (segment_cols[0][seg_indexes], ev0_labels, vec_paths[seg_indexes])
+        batch = (segment_cols[0][seg_indexes], ev0_labels, vec_paths[seg_indexes], segment_rows[seg_indexes])
         rec_batches.append(batch)
         
     return recording_ids, rec_batches
@@ -122,6 +123,68 @@ def batch_matrix(xvecpairs, labels, factor=2):
         split_batch_labs += split_labs
     return np.array(split_batch), np.array(split_batch_labs)
 
+
+def make_k_fold_dataset(rec_ids, rec_batches, base_path, k=5):
+    p = np.random.choice(np.arange(len(rec_ids)), len(rec_ids), replace=False)
+    rec_ids = np.array(rec_ids)
+    rec_batches = np.array(rec_batches)
+    splits = np.array_split(p, k)
+    for i, te in enumerate(splits):
+        fold_path = os.path.join(base_path, 'ch{}'.format(i))
+        train_path = os.path.join(fold_path, 'train')
+        test_path = os.path.join(fold_path, 'test')
+        os.makedirs(fold_path, exist_ok=True)
+        os.makedirs(train_path, exist_ok=True)
+        os.makedirs(test_path, exist_ok=True)
+        
+        tr = [i for i in p if i not in te]
+        
+        train_ids = rec_ids[tr]
+        train_batches = rec_batches[tr]
+        
+        test_ids = rec_ids[te]
+        test_batches = rec_batches[te]
+        
+        utts, paths, spkrs, seglines = get_subset_files(test_ids, test_batches)
+        make_files(test_path, utts, paths, spkrs, seglines)
+        
+        utts, paths, spkrs, seglines = get_subset_files(train_ids, train_batches)
+        make_files(train_path, utts, paths, spkrs, seglines)
+        
+    
+def get_subset_files(rec_ids, rec_batches):
+    xvec_utts = []
+    xvec_paths = []
+    xvec_spk = []
+    seglines = []
+    for rec_id, batch in zip(rec_ids, rec_batches):
+        xvec_paths.append(batch[2])
+        xvec_utts.append(batch[0])
+        xvec_spk.append(batch[1])
+        seglines.append(batch[3])
+    return np.concatenate(xvec_utts), np.concatenate(xvec_paths), np.concatenate(xvec_spk), np.concatenate(seglines)
+    
+
+def make_files(data_path, utts, paths, spkrs, seglines):
+    os.makedirs(data_path, exist_ok=True)
+    utt2spk = os.path.join(data_path, 'utt2spk')
+    xvecscp = os.path.join(data_path, 'xvector.scp')
+    segments = os.path.join(data_path, 'segments')
+    with open(segments, 'w+') as fp:
+        for l in seglines:
+            line = ' '.join(l) + '\n'
+            fp.write(line)
+    with open(utt2spk, "w+") as fp:
+        for utt, spk in zip(utts, spkrs):
+            line = '{} {}\n'.format(utt, spk)
+            fp.write(line)
+    with open(xvecscp, "w+") as fp:
+        for utt, path in zip(utts, paths):
+            line = '{} {}\n'.format(utt, path)
+            fp.write(line)
+    
+
+
 class dloader:
     
     def __init__(self, segs, rttm, xvec_scp, max_len=400, concat=True):
@@ -144,18 +207,18 @@ class dloader:
         rec_order[0], rec_order[first_rec] = rec_order[first_rec], rec_order[0]
 
         for i in rec_order:
-            utts, labels, paths = self.rec_batches[i]
+            _, labels, paths, _ = self.rec_batches[i]
             xvecs = np.array([read_xvec(file) for file in paths])
             if self.concat:
                 pmatrix, plabels = pairwise_cat_matrix(xvecs, labels)
                 if len(labels) <= self.max_len:
-                    yield pmatrix, plabels
+                    yield pmatrix, np.vstack([np.ones(len(labels))*2, labels])
                 else:
                     factors = np.arange(2, 10)
                     factor = np.min(factors[np.argwhere(len(labels)/factors < self.max_len).flatten()])
                     batched_feats, batched_labels = batch_matrix(pmatrix, plabels, factor=factor)
                     for feats, labels in zip(batched_feats, batched_labels):
-                        yield feats, labels
+                        yield feats, np.vstack([np.ones(len(labels))*2, labels]).astype(int)
             else:
                 # labels = sim_matrix_target(labels).flatten()
                 assert len(labels) == len(xvecs)

@@ -52,13 +52,13 @@ class TransformerSim(nn.Module):
                                 num_encoder_layers=num_encoder_layers,
                                 num_decoder_layers=num_encoder_layers,
                                 dim_feedforward=dim_feedforward)
-        self.out_embed = nn.Embedding(2, d_model)
-        self.generator = nn.Linear(d_model, 1)
+        self.out_embed = nn.Embedding(3, d_model)
+        self.generator = nn.Linear(d_model, 3)
     
     def forward(self, src, tgt, tgt_mask=None):
         x = self.tf(src, tgt, tgt_mask=tgt_mask)
         x = self.generator(x)
-        return x.squeeze(2)
+        return x
     
     def encode(self, src):
         x = self.tf.encoder(src)

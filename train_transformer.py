@@ -57,7 +57,7 @@ def train():
     
     print('Scheduler to step LR every {} epochs'.format(args.scheduler_period))
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.scheduler_period, gamma=0.1)
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.CrossEntropyLoss()
 
     iterations = 0
 
@@ -75,11 +75,13 @@ def train():
 
             feats = torch.FloatTensor(feats).to(device)
             labels = torch.LongTensor(labels).to(device)
+            T, N = labels.shape
             label_embeds = model.out_embed(labels)
             tgt_mask = subsequent_mask(labels.shape[0]).to(device)
+            # tgt_mask = model.tf.gener
             out = model(feats, label_embeds, tgt_mask=tgt_mask)
             
-            loss = criterion(out.flatten(), labels.flatten().float())
+            loss = criterion(out.reshape(T*N,-1), labels.flatten().long())
             optimizer.zero_grad()
 
             loss.backward()
@@ -113,6 +115,30 @@ def train():
     print('Training complete. Saved to {}'.format(final_model_path))
 
 
+def test(model, device, criterion):
+    model.eval()
+    with torch.no_grad():
+        for batch_idx, (feats, labels) in enumerate(dl_test.get_batches()):
+            feats = torch.FloatTensor(feats).to(device)
+            labels = torch.LongTensor(labels).to(device)
+            memory = model.encode(feats)
+            ys = torch.ones(1,feats.shape[1]).long() * 2
+            for t in range(len(feats.shape[1])):
+                tgt = model.out_embed(ys)
+                tgt_mask = subsequent_mask(tgt.shape[0]).to(device)
+                out = model(memory, tgt, tgt_mask=tgt_mask)
+                prob = F.sigmoid(out, dim=-1)
+                _, next_y = torch.max(prob, dim=-1)
+                ys = torch.cat([ys, next_y])
+                pass
+            tgt_mask = subsequent_mask(labels.shape[0]).to(device)
+
+            out = model(feats, label_embeds, tgt_mask=tgt_mask)
+            
+            loss = criterion(out.flatten(), labels.flatten().float())
+    pass
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Transformer similarity scoring')
     parser.add_argument('--epochs', type=int, default=200,
@@ -123,7 +149,7 @@ def parse_args():
                         help='disables CUDA training')
     parser.add_argument('--seed', type=int, default=1234, metavar='S',
                         help='random seed (default: 1)')
-    parser.add_argument('--max-len', type=int, default=300,
+    parser.add_argument('--max-len', type=int, default=200,
                         help='max len')
     parser.add_argument('--model-dir', type=str, default='./exp/transformer_sim/',
                         help='Saved model paths')
@@ -169,7 +195,9 @@ def remove_old_models():
 if __name__ == "__main__":
     args = parse_args()
     rttm = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome2/ref.rttm'
+
     segs = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome2/segments'
     xvec_scp = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome2/xvector.scp'
     dl = dloader(segs, rttm, xvec_scp, max_len=args.max_len, concat=True)
+    # dl_test = dloader(segs, rttm, xvec_scp, max_len=1000, concat=True)
     train()
