@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from data_io import dloader
-from models import TransformerSim, subsequent_mask
+from models import XTransformerSim
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
@@ -29,7 +29,7 @@ def train():
     device = torch.device("cuda" if use_cuda else "cpu")
 
     writer = SummaryWriter(comment='transformer_sim')
-    model = TransformerSim()
+    model = XTransformerSim()
     # model = nn.DataParallel(model)
     model.to(device)
     model.train()
@@ -57,7 +57,7 @@ def train():
     
     print('Scheduler to step LR every {} epochs'.format(args.scheduler_period))
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.scheduler_period, gamma=0.1)
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.BCEWithLogitsLoss()
 
     iterations = 0
 
@@ -76,15 +76,11 @@ def train():
             iterations += 1
 
             feats = torch.FloatTensor(feats).to(device)
-            labels = torch.LongTensor(labels).to(device)
-            T, N = labels.shape
-            label_embeds = model.out_embed(labels)
-            tgt_mask = model.tf.generate_square_subsequent_mask(labels.shape[0]).to(device)
-            src_mask = model.tf.generate_square_subsequent_mask(feats.shape[0]).to(device)
+            labels = torch.FloatTensor(labels).to(device)
 
-            out = model(feats, label_embeds, src_mask=src_mask, tgt_mask=tgt_mask)
-            
-            loss = criterion(out.reshape(T*N,-1), labels.flatten().long())
+
+            out = model(feats)
+            loss = criterion(out.flatten(), labels.flatten())
             optimizer.zero_grad()
 
             loss.backward()
@@ -126,58 +122,23 @@ def train():
 
 def test(model, device, criterion):
     model.eval()
-    # with torch.no_grad():
-    #     total_batches = 0
-    #     total_loss = 0
-    #     for batch_idx, (feats, labels) in enumerate(tqdm(dl_test.get_batches())):
-    #         feats = torch.FloatTensor(feats).to(device)
-    #         labels = torch.LongTensor(labels).to(device)
-    #         T, N = labels.shape
-    #         tgts = model.out_embed(torch.ones(1,feats.shape[1]).long().to(device) * 2)
-    #         memory = model.encode(feats)
-    #         src_mask = model.tf.generate_square_subsequent_mask(memory.shape[0]).to(device)
-    #         for t in tqdm(range(feats.shape[0])):
-    #             tgt_mask = model.tf.generate_square_subsequent_mask(tgts.shape[0]).to(device)
-    #             out = model.tf(memory, tgts, src_mask=src_mask, tgt_mask=tgt_mask)
-    #             tgts = torch.cat([tgts, out[-1].unsqueeze(0)], dim=0)
-    #             # tgts = out
-    #         outs = model.generator(tgts)
-    #         loss = criterion(outs.reshape(T*N,-1), labels.flatten().long())
-    #         total_loss += loss.item()
-    #         total_batches += 1
     with torch.no_grad():
         total_batches = 0
         total_loss = 0
         for batch_idx, (feats, labels) in enumerate(dl_test.get_batches()):
             feats = torch.FloatTensor(feats).to(device)
-            labels = torch.LongTensor(labels).to(device)
-            T, N = labels.shape
-            ys = torch.ones(1,feats.shape[1]).long() * 2
-            ys = ys.to(device)
-            memory = model.encode(feats)
-            src_mask = model.tf.generate_square_subsequent_mask(memory.shape[0]).to(device)
-            for t in tqdm(range(feats.shape[1])):
-                tgt = model.out_embed(ys)
-                tgt_mask = model.tf.generate_square_subsequent_mask(ys.shape[0]).to(device)
-
-                out = model(memory, tgt, src_mask=src_mask, tgt_mask=tgt_mask)
-                prob = torch.sigmoid(out)
-                _, next_y = torch.max(prob[-1], dim=-1)
-                ys = torch.cat([ys, next_y.unsqueeze(0)], dim=0)
-            
-            final_tgt = model.out_embed(ys)
-            outs = model.generator(final_tgt)
-            loss = criterion(outs.reshape(T*N, -1), labels.flatten().long())
+            labels = torch.FloatTensor(labels).to(device)
+            out = model(feats)
+            loss = criterion(out.flatten(), labels.flatten())
             total_loss += loss.item()
             total_batches += 1
-            
     model.train()
     return total_loss/total_batches
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Transformer similarity scoring')
-    parser.add_argument('--epochs', type=int, default=5,
+    parser.add_argument('--epochs', type=int, default=100,
                         help='number of epochs to train (default: 3)')
     parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
                         help='learning rate (default: 1e-4)')
@@ -185,11 +146,11 @@ def parse_args():
                         help='disables CUDA training')
     parser.add_argument('--seed', type=int, default=1234, metavar='S',
                         help='random seed (default: 1)')
-    parser.add_argument('--max-len', type=int, default=200,
+    parser.add_argument('--max-len', type=int, default=500,
                         help='max len')
-    parser.add_argument('--model-dir', type=str, default='./exp/transformer_sim_ch{}/',
+    parser.add_argument('--model-dir', type=str, default='./exp/xtransformer_sim_ch{}/',
                         help='Saved model paths')
-    parser.add_argument('--scheduler-period', type=int, default=2,
+    parser.add_argument('--scheduler-period', type=int, default=40,
                         help='Scheduler period (default: 10)')
     parser.add_argument('--checkpoint-interval', type=int, default=1,
                         help='Number of epochs to run before saving the model to disk for checkpointing (default: 5)') 
@@ -234,7 +195,7 @@ if __name__ == "__main__":
     args = parse_args()
     rttm = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome/fullref.rttm'
     xbase = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome'
-    fold = args.fold
+    fold = 0
     base_path = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/ch{}/'.format(fold)
     tr_segs = os.path.join(base_path, 'train/segments')
     tr_xvecscp = os.path.join(base_path, 'train/xvector.scp')
@@ -242,6 +203,6 @@ if __name__ == "__main__":
     te_segs = os.path.join(base_path, 'test/segments')
     te_xvecscp = os.path.join(base_path, 'test/xvector.scp')
 
-    dl = dloader(tr_segs, rttm, tr_xvecscp, max_len=args.max_len, pad_start=True, xvecbase_path=xbase)
-    dl_test = dloader(te_segs, rttm, te_xvecscp, max_len=300, pad_start=True, xvecbase_path=xbase)
+    dl = dloader(tr_segs, rttm, tr_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase)
+    dl_test = dloader(te_segs, rttm, te_xvecscp, max_len=300, pad_start=False, xvecbase_path=xbase)
     train()

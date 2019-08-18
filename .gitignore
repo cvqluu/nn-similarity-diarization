@@ -105,3 +105,4 @@ venv.bak/
 ._*.py
 *.pt
 runs/*
+.vscode/*

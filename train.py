@@ -96,12 +96,14 @@ def train():
 
         scheduler.step()
         if (epoch + 1) % args.checkpoint_interval == 0:
-
             model.eval().cpu()
             cp_filename = "epoch_{}.pt".format(epoch+1)
             cp_model_path = os.path.join(args.model_dir, cp_filename)
             torch.save(model.state_dict(), cp_model_path)
             model.to(device).train()
+            test_loss = test(model, device, criterion)
+            print('TEST LOSS: {}'.format(test_loss))
+            model.train()
             # remove_old_models()
         
     # ---- Final model saving -----
@@ -112,10 +114,25 @@ def train():
     
     print('Training complete. Saved to {}'.format(final_model_path))
 
+def test(model, device, criterion):
+    model.eval()
+    with torch.no_grad():
+        total_batches = 0
+        total_loss = 0
+        for batch_idx, (feats, labels) in enumerate(dl_test.get_batches()):
+            feats = torch.FloatTensor(feats).to(device)
+            labels = torch.FloatTensor(labels).to(device)
+            out = model(feats)
+            loss = criterion(out.flatten(), labels.flatten())
+            total_loss += loss.item()
+            total_batches += 1
+    model.train()
+    return total_loss/total_batches
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a speaker change lstm using pytorch')
-    parser.add_argument('--epochs', type=int, default=200,
+    parser.add_argument('--epochs', type=int, default=100,
                         help='number of epochs to train (default: 3)')
     parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
                         help='learning rate (default: 1e-4)')
@@ -123,7 +140,7 @@ def parse_args():
                         help='disables CUDA training')
     parser.add_argument('--seed', type=int, default=1234, metavar='S',
                         help='random seed (default: 1)')
-    parser.add_argument('--model-dir', type=str, default='./exp/lstm_sim/',
+    parser.add_argument('--model-dir', type=str, default='./exp/lstm_sim_ch{}/',
                         help='Saved model paths')
     parser.add_argument('--model-type', type=str, default='lstm',
                         help='Model type')
@@ -138,10 +155,12 @@ def parse_args():
     parser.add_argument('--pretrain', action='store_true', default=False,
                             help='Will try and load weights that have been trained on another model')
     parser.add_argument('--epoch-resume', type=int, default=None, help='Resume from a chosen epoch')
-    parser.add_argument('--max-len', type=int, default=300,
+    parser.add_argument('--max-len', type=int, default=400,
                         help='max len')
+    parser.add_argument('--fold', type=int, default=0)
     args = parser.parse_args()
     args._start_time = time.ctime()
+    args.model_dir = args.model_dir.format(args.fold)
     args.log_file = os.path.join(args.model_dir, 'exp_out.log')
 
     pprint(vars(args))
@@ -170,8 +189,17 @@ def remove_old_models():
     
 if __name__ == "__main__":
     args = parse_args()
-    rttm = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome2/ref.rttm'
-    segs = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome2/segments'
-    xvec_scp = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome2/xvector.scp'
-    dl = dloader(segs, rttm, xvec_scp, concat=True, max_len=args.max_len)
+    rttm = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome/fullref.rttm'
+    xbase = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome'
+    fold = args.fold
+    base_path = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/ch{}/'.format(fold)
+    tr_segs = os.path.join(base_path, 'train/segments')
+    tr_xvecscp = os.path.join(base_path, 'train/xvector.scp')
+
+    te_segs = os.path.join(base_path, 'test/segments')
+    te_xvecscp = os.path.join(base_path, 'test/xvector.scp')
+
+    dl = dloader(tr_segs, rttm, tr_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase)
+    dl_test = dloader(te_segs, rttm, te_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase)
+    train()
     train()

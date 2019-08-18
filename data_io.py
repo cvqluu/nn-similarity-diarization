@@ -52,14 +52,15 @@ def assign_overlaps(events0, events1, events1_labels):
     assert len(events0) == len(events0_labels)
     return events0_labels
         
-def segment_labels(segments, rttm, xvectorscp):
+def segment_labels(segments, rttm, xvectorscp, xvecbase_path=None):
     segment_cols = load_n_col(segments, numpy=True)
     segment_rows = np.array(list(zip(*segment_cols)))
     rttm_cols = load_n_col(rttm,numpy=True)
     vec_utts, vec_paths = load_n_col(xvectorscp, numpy=True)
-    
+    if not xvecbase_path:
+        xvecbase_path = os.path.dirname(xvectorscp)
     assert sum(vec_utts == segment_cols[0]) == len(segment_cols[0])
-    vec_paths = change_base_paths(vec_paths, new_base_path=os.path.dirname(xvectorscp))
+    vec_paths = change_base_paths(vec_paths, new_base_path=xvecbase_path)
 
     rttm_cols.append(rttm_cols[3].astype(float) + rttm_cols[4].astype(float))
     recording_ids = sorted(set(segment_cols[1]))
@@ -187,15 +188,15 @@ def make_files(data_path, utts, paths, spkrs, seglines):
 
 class dloader:
     
-    def __init__(self, segs, rttm, xvec_scp, max_len=400, concat=True):
+    def __init__(self, segs, rttm, xvec_scp, max_len=400, pad_start=False, xvecbase_path=None):
         assert os.path.isfile(segs)
         assert os.path.isfile(rttm)
         assert os.path.isfile(xvec_scp)
-        self.ids, self.rec_batches = segment_labels(segs, rttm, xvec_scp)
+        self.ids, self.rec_batches = segment_labels(segs, rttm, xvec_scp, xvecbase_path=xvecbase_path)
         self.lengths = [len(batch[0]) for batch in self.rec_batches]
         self.first_rec = np.argmax(self.lengths)
         self.max_len = max_len
-        self.concat = concat
+        self.pad_start = pad_start
     
     def __len__(self):
         return len(self.ids)
@@ -209,25 +210,18 @@ class dloader:
         for i in rec_order:
             _, labels, paths, _ = self.rec_batches[i]
             xvecs = np.array([read_xvec(file) for file in paths])
-            if self.concat:
-                pmatrix, plabels = pairwise_cat_matrix(xvecs, labels)
-                if len(labels) <= self.max_len:
-                    yield pmatrix, np.vstack([np.ones(len(labels))*2, labels])
+            pmatrix, plabels = pairwise_cat_matrix(xvecs, labels)
+            if len(labels) <= self.max_len:
+                if self.pad_start:
+                    yield pmatrix, np.vstack([np.ones(len(labels))*2, plabels]).astype(int)
                 else:
-                    factors = np.arange(2, 10)
-                    factor = np.min(factors[np.argwhere(len(labels)/factors < self.max_len).flatten()])
-                    batched_feats, batched_labels = batch_matrix(pmatrix, plabels, factor=factor)
-                    for feats, labels in zip(batched_feats, batched_labels):
-                        yield feats, np.vstack([np.ones(len(labels))*2, labels]).astype(int)
+                    yield pmatrix, plabels
             else:
-                # labels = sim_matrix_target(labels).flatten()
-                assert len(labels) == len(xvecs)
-                if len(labels) <= self.max_len:
-                    yield xvecs, labels
-                else:
-                    factors = np.arange(2,4)
-                    factor = np.min(factors[np.argwhere(len(labels)/factors < self.max_len).flatten()])
-                    batched_feats = np.array_split(xvecs, factor)
-                    batched_labels = np.array_split(labels, factor)
-                    for feats, labels in zip(batched_feats, batched_labels):
+                factors = np.arange(2, 10)
+                factor = np.min(factors[np.argwhere(len(labels)/factors < self.max_len).flatten()])
+                batched_feats, batched_labels = batch_matrix(pmatrix, plabels, factor=factor)
+                for feats, labels in zip(batched_feats, batched_labels):
+                    if self.pad_start:
+                        yield feats, np.vstack([np.ones(len(labels))*2, labels]).astype(int)
+                    else:
                         yield feats, labels
