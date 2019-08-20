@@ -89,22 +89,29 @@ class XTransformerLSTMSim(nn.Module):
     def __init__(self, d_model=256, nhead=4, num_encoder_layers=2, dim_feedforward=1024):
         super(XTransformerLSTMSim, self).__init__()
         self.tf = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward), num_encoder_layers)
-        self.decoder = AttnDecoderRNN(hidden_size = d_model)
+        self.lstm = nn.LSTM(d_model,
+                            d_model,
+                            num_layers=2,
+                            bidirectional=True)
+        self.fc1 = nn.Linear(d_model*2, 64)
+        self.fc2 = nn.Linear(64, 1)
 
-    def forward(self, src, hidden_init):
-        enc_out = self.tf(src)
-        output, _, _ = self.decoder(src, hidden_init, enc_out)
-        return output
+    def forward(self, src):
+        out = self.tf(src)
+        out, _ = self.lstm(out)
+        out = F.relu(self.fc1(out))
+        out = self.fc2(out)
+        return out
 
 class AttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size=256, output_size=1, dropout_p=0.1, max_length=400):
+    def __init__(self, hidden_size=256, output_size=1, dropout_p=0.1, max_length=250):
         super(AttnDecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.dropout_p = dropout_p
         self.max_length = max_length
 
-        self.embedding = nn.Embedding(self.output_size, self.hidden_size)
+        # self.embedding = nn.Embedding(self.output_size, self.hidden_size)
         self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
         self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
         self.dropout = nn.Dropout(self.dropout_p)
@@ -152,7 +159,7 @@ class XTransformer(nn.Module):
         x = self.fc2(x)
         sim = self.pdist(x)
         return sim
-
+        
 
 class LSTMTransform(nn.Module):
 

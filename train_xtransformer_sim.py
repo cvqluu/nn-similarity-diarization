@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from data_io import dloader
-from models import XTransformerSim
+from models import XTransformerSim, XTransformerLSTMSim
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
@@ -29,7 +29,8 @@ def train():
     device = torch.device("cuda" if use_cuda else "cpu")
 
     writer = SummaryWriter(comment='transformer_sim')
-    model = XTransformerSim()
+    # model = XTransformerSim()
+    model = XTransformerLSTMSim()
     # model = nn.DataParallel(model)
     model.to(device)
     model.train()
@@ -78,8 +79,8 @@ def train():
             feats = torch.FloatTensor(feats).to(device)
             labels = torch.FloatTensor(labels).to(device)
 
-
             out = model(feats)
+
             loss = criterion(out.flatten(), labels.flatten())
             optimizer.zero_grad()
 
