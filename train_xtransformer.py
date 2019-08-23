@@ -70,11 +70,10 @@ def train():
                 scheduler.step()
                 continue
 
-        for batch_idx, (feats, labels) in enumerate(dl.get_batches()):
+        for batch_idx, (feats, labels) in enumerate(dl.get_batches_seq()):
             iterations += 1
 
             feats = torch.FloatTensor(feats).unsqueeze(1).to(device)
-            labels = sim_matrix_target(labels)
             labels = torch.FloatTensor(labels).to(device)
 
             out = model(feats)
@@ -115,7 +114,7 @@ def train():
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Transformer similarity scoring')
-    parser.add_argument('--epochs', type=int, default=5,
+    parser.add_argument('--epochs', type=int, default=100,
                         help='number of epochs to train (default: 3)')
     parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
                         help='learning rate (default: 1e-4)')
@@ -138,6 +137,7 @@ def parse_args():
     parser.add_argument('--pretrain', action='store_true', default=False,
                             help='Will try and load weights that have been trained on another model')
     parser.add_argument('--epoch-resume', type=int, default=None, help='Resume from a chosen epoch')
+    parser.add_argument('--fold', type=int, default=0, help='Train fold')
     args = parser.parse_args()
     args._start_time = time.ctime()
     args.log_file = os.path.join(args.model_dir, 'exp_out.log')
@@ -168,8 +168,21 @@ def remove_old_models():
     
 if __name__ == "__main__":
     args = parse_args()
-    rttm = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome2/ref.rttm'
-    segs = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome2/segments'
-    xvec_scp = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome2/xvector.scp'
-    dl = dloader(segs, rttm, xvec_scp, max_len=args.max_len, concat=False)
+    rttm = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome/fullref.rttm'
+    xbase = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome'
+    fold = args.fold
+    base_path = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/ch{}/'.format(fold)
+    tr_segs = os.path.join(base_path, 'train/segments')
+    tr_xvecscp = os.path.join(base_path, 'train/xvector.scp')
+
+    te_segs = os.path.join(base_path, 'test/segments')
+    te_xvecscp = os.path.join(base_path, 'test/xvector.scp')
+
+    dl = dloader(tr_segs, rttm, tr_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase)
+    dl_test = dloader(te_segs, rttm, te_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase)
     train()
+    # rttm = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome2/ref.rttm'
+    # segs = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome2/segments'
+    # xvec_scp = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome2/xvector.scp'
+    # dl = dloader(segs, rttm, xvec_scp, max_len=args.max_len, concat=False)
+    # train()

@@ -141,7 +141,7 @@ class AttnDecoderRNN(nn.Module):
 
 class XTransformer(nn.Module):
 
-    def __init__(self, d_model=128, nhead=4, num_encoder_layers=3, dim_feedforward=1024):
+    def __init__(self, d_model=128, nhead=8, num_encoder_layers=6, dim_feedforward=1024):
         super(XTransformer, self).__init__()
 
         self.tf = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward), num_encoder_layers)
@@ -184,4 +184,4 @@ class LSTMTransform(nn.Module):
         x = self.nl(x)
         x = self.fc2(x)
         sim = self.pdist(x)
-        return sim
+        return 1. - sim

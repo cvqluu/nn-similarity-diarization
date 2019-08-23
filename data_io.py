@@ -225,3 +225,14 @@ class dloader:
                         yield feats, np.vstack([np.ones(len(labels))*2, labels]).astype(int)
                     else:
                         yield feats, labels
+                         
+    def get_batches_seq(self):
+        rec_order = np.arange(len(self.rec_batches))
+        np.random.shuffle(rec_order)
+        first_rec = np.argwhere(rec_order == self.first_rec).flatten()
+        rec_order[0], rec_order[first_rec] = rec_order[first_rec], rec_order[0]
+        for i in rec_order:
+            _, labels, paths, _ = self.rec_batches[i]
+            xvecs = np.array([read_xvec(file) for file in paths])
+            pwise_labels = sim_matrix_target(labels)
+            yield xvecs, pwise_labels
