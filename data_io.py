@@ -107,23 +107,22 @@ def sim_matrix_target(labels):
     dist = 1.0 - pairwise_distances(le.fit_transform(labels)[:,np.newaxis], metric='hamming')
     return dist
 
-def batch_matrix(xvecpairs, labels, factor=2):
-    remainder = len(labels) % factor
-    newlen = len(labels) - remainder
-    if remainder != 0:
-        xvecpairs = xvecpairs[:-remainder, :-remainder, :]
-        labels = labels[:-remainder, :-remainder]
-    split_batch = []
-    split_batch_labs = []
-    for i in range(factor):
-        start = i * newlen//factor
-        end = (i+1) * newlen//factor
-        split_rows = np.split(xvecpairs[:,start:end,:], factor)
-        split_labs = np.split(labels[:,start:end], factor)
-        split_batch += split_rows
-        split_batch_labs += split_labs
-    return np.array(split_batch), np.array(split_batch_labs)
-
+# def batch_matrix(xvecpairs, labels, factor=2):
+#     remainder = len(labels) % factor
+#     newlen = len(labels) - remainder
+#     if remainder != 0:
+#         xvecpairs = xvecpairs[:-remainder, :-remainder, :]
+#         labels = labels[:-remainder, :-remainder]
+#     split_batch = []
+#     split_batch_labs = []
+#     for i in range(factor):
+#         start = i * newlen//factor
+#         end = (i+1) * newlen//factor
+#         split_rows = np.split(xvecpairs[:,start:end,:], factor)
+#         split_labs = np.split(labels[:,start:end], factor)
+#         split_batch += split_rows
+#         split_batch_labs += split_labs
+#     return np.array(split_batch), np.array(split_batch_labs)
 
 def make_k_fold_dataset(rec_ids, rec_batches, base_path, k=5):
     p = np.random.choice(np.arange(len(rec_ids)), len(rec_ids), replace=False)
@@ -184,11 +183,59 @@ def make_files(data_path, utts, paths, spkrs, seglines):
             line = '{} {}\n'.format(utt, path)
             fp.write(line)
     
+def recombine_matrix(submatrices):
+    dim = int(np.sqrt(len(submatrices)))
+    rows = []
+    for j in range(dim):
+        start = j * dim
+        row = np.concatenate(submatrices[start:start+dim], axis=1)
+        rows.append(row)
+    return np.concatenate(rows, axis=0)
+
+def collate_sim_matrices(out_list, rec_ids):
+    '''
+    expect input list 
+    '''
+    comb_matrices = []
+    comb_ids = []
+    matrix_buffer = []
+    last_rec_id = rec_ids[0]
+    for rid, vec in zip(rec_ids, out_list):
+        if last_rec_id == rid:
+            matrix_buffer.append(vec)
+        else:
+            if len(matrix_buffer) > 1:
+                comb_matrices.append(recombine_matrix(matrix_buffer))
+            else:
+                comb_matrices.append(matrix_buffer[0])
+            comb_ids.append(last_rec_id)
+            matrix_buffer = [vec]
+        last_rec_id = rid
+    return comb_matrices, comb_ids
 
 
+def batch_matrix(xvecpairs, labels, factor=2):
+    baselen = len(labels)//factor
+    split_batch = []
+    split_batch_labs = []
+    for j in range(factor):
+        for i in range(factor):
+            start_j = j * baselen
+            end_j = (j+1) * baselen if j != factor - 1 else -1
+            start_i = i * baselen
+            end_i = (i+1) * baselen if i != factor - 1 else -1
+            
+            mini_pairs = xvecpairs[start_j:end_j, start_i:end_i, :]
+            mini_labels = labels[start_j:end_j, start_i:end_i]
+            
+            split_batch.append(mini_pairs)
+            split_batch_labs.append(mini_labels)
+    return split_batch, split_batch_labs
+            
+    
 class dloader:
     
-    def __init__(self, segs, rttm, xvec_scp, max_len=400, pad_start=False, xvecbase_path=None):
+    def __init__(self, segs, rttm, xvec_scp, max_len=400, pad_start=False, xvecbase_path=None, shuffle=True):
         assert os.path.isfile(segs)
         assert os.path.isfile(rttm)
         assert os.path.isfile(xvec_scp)
@@ -197,42 +244,47 @@ class dloader:
         self.first_rec = np.argmax(self.lengths)
         self.max_len = max_len
         self.pad_start = pad_start
+        self.shuffle = shuffle
     
     def __len__(self):
         return len(self.ids)
         
     def get_batches(self):
         rec_order = np.arange(len(self.rec_batches))
-        np.random.shuffle(rec_order)
-        first_rec = np.argwhere(rec_order == self.first_rec).flatten()
-        rec_order[0], rec_order[first_rec] = rec_order[first_rec], rec_order[0]
+        if self.shuffle:
+            np.random.shuffle(rec_order)
+            first_rec = np.argwhere(rec_order == self.first_rec).flatten()
+            rec_order[0], rec_order[first_rec] = rec_order[first_rec], rec_order[0]
 
         for i in rec_order:
+            rec_id = self.ids[i]
             _, labels, paths, _ = self.rec_batches[i]
             xvecs = np.array([read_xvec(file) for file in paths])
             pmatrix, plabels = pairwise_cat_matrix(xvecs, labels)
             if len(labels) <= self.max_len:
                 if self.pad_start:
-                    yield pmatrix, np.vstack([np.ones(len(labels))*2, plabels]).astype(int)
+                    yield pmatrix, np.vstack([np.ones(len(labels))*2, plabels]).astype(int), rec_id
                 else:
-                    yield pmatrix, plabels
+                    yield pmatrix, plabels, rec_id
             else:
                 factors = np.arange(2, 10)
                 factor = np.min(factors[np.argwhere(len(labels)/factors < self.max_len).flatten()])
                 batched_feats, batched_labels = batch_matrix(pmatrix, plabels, factor=factor)
                 for feats, labels in zip(batched_feats, batched_labels):
                     if self.pad_start:
-                        yield feats, np.vstack([np.ones(len(labels))*2, labels]).astype(int)
+                        yield feats, np.vstack([np.ones(len(labels))*2, labels]).astype(int), rec_id
                     else:
-                        yield feats, labels
+                        yield feats, labels, rec_id
                          
     def get_batches_seq(self):
         rec_order = np.arange(len(self.rec_batches))
-        np.random.shuffle(rec_order)
-        first_rec = np.argwhere(rec_order == self.first_rec).flatten()
-        rec_order[0], rec_order[first_rec] = rec_order[first_rec], rec_order[0]
+        if self.shuffle:
+            np.random.shuffle(rec_order)
+            first_rec = np.argwhere(rec_order == self.first_rec).flatten()
+            rec_order[0], rec_order[first_rec] = rec_order[first_rec], rec_order[0]
         for i in rec_order:
+            rec_id = self.ids[i]
             _, labels, paths, _ = self.rec_batches[i]
             xvecs = np.array([read_xvec(file) for file in paths])
             pwise_labels = sim_matrix_target(labels)
-            yield xvecs, pwise_labels
+            yield xvecs, pwise_labels, rec_id

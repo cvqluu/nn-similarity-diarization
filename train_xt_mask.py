@@ -70,7 +70,7 @@ def train():
                 scheduler.step()
                 continue
 
-        for batch_idx, (feats, labels) in enumerate(dl.get_batches_seq()):
+        for batch_idx, (feats, labels, _) in enumerate(dl.get_batches_seq()):
             iterations += 1
 
             feats = torch.FloatTensor(feats).unsqueeze(1).to(device)
@@ -121,7 +121,7 @@ def test(model, device, criterion):
     with torch.no_grad():
         total_batches = 0
         total_loss = 0
-        for batch_idx, (feats, labels) in enumerate(dl_test.get_batches_seq()):
+        for batch_idx, (feats, labels, _) in enumerate(dl_test.get_batches_seq()):
             feats = torch.FloatTensor(feats).unsqueeze(1).to(device)
             labels = torch.FloatTensor(labels).to(device)
             out = model(feats)
@@ -198,5 +198,5 @@ if __name__ == "__main__":
     te_xvecscp = os.path.join(base_path, 'test/xvector.scp')
 
     dl = dloader(tr_segs, rttm, tr_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase)
-    dl_test = dloader(te_segs, rttm, te_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase)
+    dl_test = dloader(te_segs, rttm, te_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase, shuffle=False)
     train()
