@@ -47,22 +47,22 @@ class TransformerSim(nn.Module):
     def __init__(self, d_model=256, nhead=4, num_encoder_layers=2, dim_feedforward=1024):
         super(TransformerSim, self).__init__()
 
-        self.tf = nn.Transformer(d_model=d_model, 
-                                nhead=nhead, 
+        self.tf = nn.Transformer(d_model=d_model,
+                                nhead=nhead,
                                 num_encoder_layers=num_encoder_layers,
                                 num_decoder_layers=num_encoder_layers,
                                 dim_feedforward=dim_feedforward)
         self.out_embed = nn.Embedding(3, d_model)
         self.generator = nn.Linear(d_model, 3)
-    
+
     def forward(self, src, tgt, src_mask=None, tgt_mask=None):
         x = self.tf(src, tgt, src_mask=src_mask, tgt_mask=tgt_mask)
         x = self.generator(x)
         return x
-    
+
     def encode(self, src):
         x = self.tf.encoder(src)
-        return x        
+        return x
 
 class XTransformerSim(nn.Module):
 
@@ -74,7 +74,7 @@ class XTransformerSim(nn.Module):
         self.nl = nn.ReLU(inplace=True)
         self.ln = nn.LayerNorm(d_model)
         self.fc2 = nn.Linear(d_model, 1)
-    
+
     def forward(self, src):
         x = self.tf(src)
         x = self.fc1(x)
@@ -145,21 +145,41 @@ class XTransformer(nn.Module):
         super(XTransformer, self).__init__()
 
         self.tf = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward), num_encoder_layers)
-        self.fc1 = nn.Linear(d_model, d_model)
-        self.nl = nn.ReLU(inplace=True)
-        self.fc2 = nn.Linear(d_model, d_model)
+        # self.fc1 = nn.Linear(d_model, d_model)
+        # self.nl = nn.ReLU(inplace=True)
+        # self.fc2 = nn.Linear(d_model, d_model)
 
         self.pdist = pCosineSim()
-    
+
     def forward(self, src):
         x = self.tf(src)
         x = x.squeeze(1)
-        x = self.fc1(x)
-        x = self.nl(x)
-        x = self.fc2(x)
+        # x = self.fc1(x)
+        # x = self.nl(x)
+        # x = self.fc2(x)
+        x = F.normalize(x, p=2, dim=-1)
         sim = self.pdist(x)
         return sim
-        
+
+class XTransformerMask(nn.Module):
+
+    def __init__(self, d_model=128, nhead=8, num_encoder_layers=6, dim_feedforward=1024):
+
+        super(XTransformerMask, self).__init__()
+
+        self.tf = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward), num_encoder_layers)
+
+        self.pdist = pCosineSim()
+
+    def forward(self, src):
+        mask = self.tf(src)
+        mask = mask.squeeze(1)
+        mask = torch.sigmoid(mask)
+        out = F.normalize(mask * src.squeeze(1), p=2, dim=-1)
+        sim = self.pdist(out)
+        return sim
+
+
 
 class LSTMTransform(nn.Module):
 
