@@ -221,9 +221,9 @@ def batch_matrix(xvecpairs, labels, factor=2):
     for j in range(factor):
         for i in range(factor):
             start_j = j * baselen
-            end_j = (j+1) * baselen if j != factor - 1 else -1
+            end_j = (j+1) * baselen if j != factor - 1 else None 
             start_i = i * baselen
-            end_i = (i+1) * baselen if i != factor - 1 else -1
+            end_i = (i+1) * baselen if i != factor - 1 else None 
             
             mini_pairs = xvecpairs[start_j:end_j, start_i:end_i, :]
             mini_labels = labels[start_j:end_j, start_i:end_i]
