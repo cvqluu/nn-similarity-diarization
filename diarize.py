@@ -23,8 +23,6 @@ def parse_args():
                         help='Saved model paths')
     parser.add_argument('--model-type', type=str, default='lstm',
                         help='Model type')
-    parser.add_argument('--beta', type=float, default=1e-2,
-                        help='beta value for spectral clustering')
     parser.add_argument('--fold', type=int, default=0)
     parser.add_argument('--max-len', type=int, default=400)
     parser.add_argument('--no-cuda', action='store_true', default=False,
@@ -76,7 +74,7 @@ def spectral_clustering(S, beta=1e-2):
     kmask = np.real(eigvals) < beta
     P = np.real(eigvecs).T[kmask].T
     km = KMeans(n_clusters=P.shape[1])
-    return km.fit_predict(P)
+    return km.fit_predict(P) + 1
 
 def assign_segments(pred_labels, events):
     entries = []
@@ -156,14 +154,18 @@ if __name__ == "__main__":
     xbase = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome'
     fold = args.fold
     base_path = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/ch{}/'.format(fold)
-    rttm_path = os.path.join(base_path, 'hyp_{}.rttm'.format(args.fold))
-
+    
     te_segs = os.path.join(base_path, 'test/segments')
     te_xvecscp = os.path.join(base_path, 'test/xvector.scp')
     dl_test = dloader(te_segs, rttm, te_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase, shuffle=False)
 
     cm, cids = predict_matrices(model, dl_test)
-    make_rttm(te_segs, cids, cm, rttm_path, beta=args.beta)
+    betavals = np.linspace(1, 2, 11)
+    for beta in betavals:
+        rttmdir = './exp/beta_{}'.format(beta)
+        os.makedirs(rttmdir, exist_ok=True)
+        rttm_path = os.path.join(rttmdir, 'hyp_{}.rttm'.format(args.fold))
+        make_rttm(te_segs, cids, cm, rttm_path, beta=beta)
 
 
 

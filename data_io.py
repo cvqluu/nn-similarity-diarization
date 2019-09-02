@@ -17,7 +17,7 @@ def load_n_col(file, numpy=False):
     data = []
     with open(file) as fp:
         for line in fp:
-            data.append(line.strip().split(' '))
+            data.append(line.strip().split())
     columns = list(zip(*data))
     if numpy:
         columns = [np.array(list(i)) for i in columns]

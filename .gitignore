@@ -102,7 +102,9 @@ venv.bak/
 
 # mypy
 .mypy_cache/
-._*.py
+._*
 *.pt
 runs/*
 .vscode/*
+*.rttm
+*.ipynb
