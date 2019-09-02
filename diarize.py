@@ -73,8 +73,8 @@ def spectral_clustering(S, beta=1e-2):
     eigvals, eigvecs = np.linalg.eig(L_norm)
     kmask = np.real(eigvals) < beta
     P = np.real(eigvecs).T[kmask].T
-    km = KMeans(n_clusters=P.shape[1])
-    return km.fit_predict(P) + 1
+    km = KMeans(n_clusters=P.shape[1])  
+    return km.fit_predict(P)
 
 def assign_segments(pred_labels, events):
     entries = []
@@ -106,7 +106,7 @@ def rttm_lines_from_entries(entries, rec_id):
         end = entry['e']
         label = entry['id']
         offset = end-start
-        line = 'SPEAKER {} 1 {:.3f} {:.3f} <NA> <NA> {} <NA> <NA>\n'.format(rec_id, start, offset, label)
+        line = 'SPEAKER {} 0 {:.3f} {:.3f} <NA> <NA> {} <NA> <NA>\n'.format(rec_id, start, offset, label)
         lines.append(line)
     return lines
 
