@@ -19,7 +19,7 @@ from sklearn.cluster import KMeans, SpectralClustering
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Extract and diarize')
-    parser.add_argument('--model-path', type=str, default='./exp/lstm_sim_ch{}/epoch_100.pt',
+    parser.add_argument('--model-path', type=str, default='./exp/lstm_sim_ch{}/final_100.pt',
                         help='Saved model paths')
     parser.add_argument('--model-type', type=str, default='lstm',
                         help='Model type')
@@ -38,10 +38,10 @@ def predict_matrices(model, dl_test):
     preds = []
     rids = []
     with torch.no_grad():
-        for batch_idx, (feats, _, rec_id) in enumerate(dl_test.get_batches()):
+        for batch_idx, (feats, _, rec_id) in enumerate(tqdm(dl_test.get_batches(), total=len(dl_test))):
             feats = torch.FloatTensor(feats).to(device)
             out = model(feats)
-            preds.append(out.detach().cpu().numpy())
+            preds.append(torch.sigmoid(out).detach().cpu().numpy())
             rids.append(rec_id)
     cm, cids = collate_sim_matrices(preds, rids)
     return cm, cids
@@ -146,8 +146,6 @@ if __name__ == "__main__":
     print('CUDA AVAILABLE?: {}'.format(torch.cuda.is_available()))
     print('-'*10)
 
-    torch.manual_seed(args.seed)
-    np.random.seed(seed=args.seed)
     device = torch.device("cuda" if use_cuda else "cpu")
     model = LSTMSimilarity()
     model.load_state_dict(torch.load(args.model_path))
@@ -158,7 +156,7 @@ if __name__ == "__main__":
     xbase = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome'
     fold = args.fold
     base_path = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/ch{}/'.format(fold)
-    rttm_path = os.path.join(base_path, 'hyp.rttm')
+    rttm_path = os.path.join(base_path, 'hyp_{}.rttm'.format(args.fold))
 
     te_segs = os.path.join(base_path, 'test/segments')
     te_xvecscp = os.path.join(base_path, 'test/xvector.scp')

@@ -243,7 +243,7 @@ class dloader:
         assert os.path.isfile(rttm)
         assert os.path.isfile(xvec_scp)
         self.ids, self.rec_batches = segment_labels(segs, rttm, xvec_scp, xvecbase_path=xvecbase_path)
-        self.lengths = [len(batch[0]) for batch in self.rec_batches]
+        self.lengths = np.array([len(batch[0]) for batch in self.rec_batches])
         self.factors = np.ceil(self.lengths/max_len).astype(int)
         self.first_rec = np.argmax(self.lengths)
         self.max_len = max_len
