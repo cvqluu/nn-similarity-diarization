@@ -15,6 +15,7 @@ from models import LSTMSimilarity
 from tqdm import tqdm
 from scipy.sparse.csgraph import laplacian
 from sklearn.cluster import KMeans, SpectralClustering
+import scipy.cluster.hierarchy as hcluster
 
 
 def sym(matrix):
@@ -48,6 +49,10 @@ def spectral_clustering(S, beta=1e-2):
     P = np.real(eigvecs).T[kmask].T
     km = KMeans(n_clusters=P.shape[1])  
     return km.fit_predict(P)
+
+# def agg_clustering(vectors):
+    # cluster_labels = hcluster.fclusterdata(rec_xvecs, t=args.threshold, criterion='distance', method='average')
+
 
 def assign_segments(pred_labels, events):
     entries = []
@@ -99,7 +104,7 @@ def make_rttm(segments, cids, cm, rttm_file, beta=1e-2):
 
     events0 = np.array(segment_cols[2:4]).astype(float).transpose()
 
-    for rec_id, smatrix in zip(cids, cm):
+    for rec_id, smatrix in tqdm(zip(cids, cm)):
         seg_indexes = segment_cols[1] == rec_id
         ev0 = events0[seg_indexes]
         assert len(smatrix) == len(ev0)
@@ -107,7 +112,8 @@ def make_rttm(segments, cids, cm, rttm_file, beta=1e-2):
         entries = assign_segments(pred_labels, ev0)
         lines = rttm_lines_from_entries(entries, rec_id)
         lines_to_file(lines, rttm_file, wmode='a')
-        print('Wrote {} predictions to rttm {}'.format(rec_id, rttm_file))
+
+
 
 
 def sort_and_cat(rttms, column=1):
@@ -131,6 +137,7 @@ def sort_and_cat(rttms, column=1):
 if __name__ == "__main__":
 
     te_segs = 'exp/ch_segments'
+    # mat_dir = './exp/ch_css_mat'
     mat_dir = './exp/ch_sim_mat'
     cm_npys = os.path.join(mat_dir, '*.npy')
     cids = []
@@ -143,7 +150,7 @@ if __name__ == "__main__":
 
     betavals = np.linspace(0.95, 1.05, 10)
     for beta in tqdm(betavals):
-        rttmdir = './exp/beta_{}'.format(beta)
+        rttmdir = './exp/csbeta_{}'.format(beta)
         os.makedirs(rttmdir, exist_ok=True)
         rttm_path = os.path.join(rttmdir, 'hyp.rttm')
         make_rttm(te_segs, cids, cm, rttm_path, beta=beta)

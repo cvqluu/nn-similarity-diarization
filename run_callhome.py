@@ -26,14 +26,14 @@ def sort_and_cat(rttms):
 
 if __name__ == '__main__':
     for fold in range(5):
-        cmd = 'python diarize.py --fold {}'.format(fold)
+        cmd = 'python predict.py --fold {}'.format(fold)
         subprocess.call(cmd, shell=True)
 
-    segfiles = ['/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/ch{}/test/segments'.format(fold) for fold in range(5)]
-    all_seglines = sort_and_cat(segfiles)
-    with open('./exp/ch_segments', 'w+') as fp:
-        for line in all_seglines:
-            fp.write(line)
+    # segfiles = ['/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/ch{}/test/segments'.format(fold) for fold in range(5)]
+    # all_seglines = sort_and_cat(segfiles)
+    # with open('./exp/ch_segments', 'w+') as fp:
+    #     for line in all_seglines:
+    #         fp.write(line)
     
     cmd = 'python cluster.py'
     subprocess.call(cmd, shell=True)

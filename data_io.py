@@ -291,3 +291,4 @@ class dloader:
             xvecs = np.array([read_xvec(file) for file in paths])
             pwise_labels = sim_matrix_target(labels)
             yield xvecs, pwise_labels, rec_id
+

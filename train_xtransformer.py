@@ -142,7 +142,7 @@ def parse_args():
                         help='random seed (default: 1)')
     parser.add_argument('--max-len', type=int, default=300,
                         help='max len')
-    parser.add_argument('--model-dir', type=str, default='./exp/xtransformer/',
+    parser.add_argument('--model-dir', type=str, default='./exp/xtransformer_ch{}/',
                         help='Saved model paths')
     parser.add_argument('--scheduler-period', type=int, default=40,
                         help='Scheduler period (default: 10)')
@@ -158,6 +158,7 @@ def parse_args():
     parser.add_argument('--fold', type=int, default=0, help='Train fold')
     args = parser.parse_args()
     args._start_time = time.ctime()
+    args.model_dir = args.model_dir.format(args.fold)
     args.log_file = os.path.join(args.model_dir, 'exp_out.log')
 
     pprint(vars(args))

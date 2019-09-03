@@ -15,6 +15,7 @@ from models import LSTMSimilarity
 from tqdm import tqdm
 from scipy.sparse.csgraph import laplacian
 from sklearn.cluster import KMeans, SpectralClustering
+from sklearn.metrics import pairwise_distances
 
 
 def parse_args():
@@ -27,6 +28,8 @@ def parse_args():
     parser.add_argument('--max-len', type=int, default=400)
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
+    parser.add_argument('--cosine', action='store_true', default=False,
+                        help='simply takes the cosine sim matrix')
     args = parser.parse_args()
     args.model_path = args.model_path.format(args.fold)
     pprint(vars(args))
@@ -44,22 +47,17 @@ def predict_matrices(model, dl_test):
     cm, cids = collate_sim_matrices(preds, rids)
     return cm, cids
 
+def cosine_sim_matrix(dl_test):
+    preds = []
+    rids = []
+    for feats, _, rec_id in tqdm(dl_test.get_batches_seq()):
+        preds.append(pairwise_distances(feats, metric='cosine'))
+        rids.append(rec_id)
+    return preds, rids
+
 
 if __name__ == "__main__":
     args = parse_args()
-    use_cuda = not args.no_cuda and torch.cuda.is_available()
-
-    print('-'*10)
-    print('USE_CUDA SET TO: {}'.format(use_cuda))
-    print('CUDA AVAILABLE?: {}'.format(torch.cuda.is_available()))
-    print('-'*10)
-
-    device = torch.device("cuda" if use_cuda else "cpu")
-    model = LSTMSimilarity()
-    model.load_state_dict(torch.load(args.model_path))
-    model.to(device)
-    model.eval()
-    
     rttm = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome/fullref.rttm'
     xbase = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome'
     fold = args.fold
@@ -68,11 +66,28 @@ if __name__ == "__main__":
     te_segs = os.path.join(base_path, 'test/segments')
     te_xvecscp = os.path.join(base_path, 'test/xvector.scp')
     dl_test = dloader(te_segs, rttm, te_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase, shuffle=False)
+    if not args.cosine:
+        use_cuda = not args.no_cuda and torch.cuda.is_available()
 
-    cm, cids = predict_matrices(model, dl_test)
-    mat_dir = './exp/ch_sim_mat'
-    os.makedirs(mat_dir, exist_ok=True)
-    
+        print('-'*10)
+        print('USE_CUDA SET TO: {}'.format(use_cuda))
+        print('CUDA AVAILABLE?: {}'.format(torch.cuda.is_available()))
+        print('-'*10)
+
+        device = torch.device("cuda" if use_cuda else "cpu")
+        model = LSTMSimilarity()
+        model.load_state_dict(torch.load(args.model_path))
+        model.to(device)
+        model.eval()
+        cm, cids = predict_matrices(model, dl_test)
+        mat_dir = './exp/ch_sim_mat'
+        os.makedirs(mat_dir, exist_ok=True)
+
+    else:
+        cm, cids = cosine_sim_matrix(dl_test)
+        mat_dir = './exp/ch_css_mat'
+        os.makedirs(mat_dir, exist_ok=True)
+        
     for mat, rid in tqdm(zip(cm, cids)):
         filename = os.path.join(mat_dir, rid+'.npy')
         np.save(filename, mat)
