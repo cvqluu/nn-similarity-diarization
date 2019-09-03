@@ -28,11 +28,12 @@ if __name__ == '__main__':
     for fold in range(5):
         cmd = 'python diarize.py --fold {}'.format(fold)
         subprocess.call(cmd, shell=True)
-    paths = glob.glob('./exp/beta_*/')
-    for path in paths:
-        rttms = glob.glob(os.path.join(path, 'hyp_*.rttm'))
-        full_rttm = os.path.join(path, 'full_hyp.rttm')
-        final_lines = sort_and_cat(rttms)
-        with open(full_rttm, 'w') as fp:
-            for line in final_lines:
-                fp.write(line)
+
+    segfiles = ['/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/ch{}/test/segments'.format(fold) for fold in range(5)]
+    all_seglines = sort_and_cat(segfiles)
+    with open('./exp/ch_segments', 'w+') as fp:
+        for line in all_seglines:
+            fp.write(line)
+    
+    cmd = 'python cluster.py'
+    subprocess.call(cmd, shell=True)

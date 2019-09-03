@@ -108,3 +108,4 @@ runs/*
 .vscode/*
 *.rttm
 *.ipynb
+exp/*
