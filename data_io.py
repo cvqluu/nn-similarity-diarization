@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.metrics import pairwise_distances
 from sklearn.preprocessing import LabelEncoder
 
+import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
 
 def read_xvec(file):
@@ -301,13 +302,20 @@ class dloader:
         lens = np.array([v.shape[0] for v in xv])
         maxlen = np.max(lens)
         mask = np.vstack([np.concatenate([np.zeros(l), + np.ones(maxlen-l)]) for l in lens]).astype(int)
-        return pad_sequence(xv), ls, ids, mask, self.labelmask(mask)
+        return pad_sequence(xv), self.pad_sim_labels(ls, lens), ids, mask, self.labelmask(mask)
 
     @staticmethod
     def labelmask(mask):
         lmask = np.repeat(mask[:,:,np.newaxis], mask.shape[1], axis=-1)
         lmask = lmask + np.transpose(lmask, axes=[0, 2, 1])
         return lmask == 0
+    
+    @staticmethod
+    def pad_sim_labels(ls, lens):
+        maxlen = np.max(lens)
+        padlen = maxlen - lens
+        padded = [F.pad(ls[i], (0, padlen[i], 0, padlen[i])) for i in range(len(lens))]
+        return torch.stack(padded)
 
     def get_batches_t(self):
         batch_v = []
@@ -317,8 +325,8 @@ class dloader:
             if len(batch_v) == self.batch_size:
                 yield self.prep_batches(batch_v, batch_l, batch_ids)
 
-            batch_v.append(xvecs)
-            batch_l.append(labs)
+            batch_v.append(torch.FloatTensor(xvecs))
+            batch_l.append(torch.LongTensor(labs))
             batch_ids.append(rec_id)
         return self.prep_batches(batch_v, batch_l, batch_ids)
             
