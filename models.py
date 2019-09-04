@@ -33,7 +33,7 @@ class LSTMSimilarityCos(nn.Module):
                             bidirectional=True,
                             batch_first=True)
         self.fc1 = nn.Linear(hidden_size*2, 64)
-        self.nl = nn.ReLU(inplace=True)
+        self.nl = nn.ReLU()
         self.fc2 = nn.Linear(64, 1)
 
         self.pdistlayer = pCosineSiamese()  
@@ -44,7 +44,7 @@ class LSTMSimilarityCos(nn.Module):
         x = self.fc1(x)
         x = self.nl(x)
         x = torch.sigmoid(self.fc2(x).squeeze(2))
-        x += cs
+        x = x + cs
         return torch.clamp(x/2, 1e-16, 1.-1e-16)
 
 
@@ -59,6 +59,24 @@ class pCosineSim(nn.Module):
             cs_row = torch.clamp(torch.mm(x[j].unsqueeze(1).transpose(0,1), x.transpose(0,1)) / (torch.norm(x[j]) * torch.norm(x, dim=1)), 1e-6)
             cs.append(cs_row)
         return torch.cat(cs)
+
+class pbCosineSim(nn.Module):
+
+    def __init__(self):
+        super(pbCosineSim, self).__init__()
+
+    def forward(self, x):
+        '''
+        Batch pairwise cosine similarity:
+
+        input (batch_size, seq_len, d)
+        output (batch_size, seq_len, seq_len)
+        '''
+        cs = []
+        for j in range(x.shape[1]):
+            cs_row = torch.clamp(torch.bmm(x[:,j,:].unsqueeze(1), x.transpose(1,2)) / (torch.norm(x[:,j,:], dim=-1).unsqueeze(1) * torch.norm(x, dim=-1)).unsqueeze(1), 1e-6)
+            cs.append(cs_row)
+        return torch.cat(cs, dim=1)
 
 class pCosineSiamese(nn.Module):
     
