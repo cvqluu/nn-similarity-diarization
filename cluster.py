@@ -148,9 +148,9 @@ if __name__ == "__main__":
         cm.append(np.load(mpath))
         cids.append(rid)
 
-    betavals = np.linspace(0.95, 1.05, 10)
+    betavals = np.linspace(0.9, 0.94, 5)
     for beta in tqdm(betavals):
-        rttmdir = './exp/csbeta_{}'.format(beta)
+        rttmdir = './exp/maskbeta_{}'.format(beta)
         os.makedirs(rttmdir, exist_ok=True)
         rttm_path = os.path.join(rttmdir, 'hyp.rttm')
         make_rttm(te_segs, cids, cm, rttm_path, beta=beta)

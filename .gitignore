@@ -109,3 +109,4 @@ runs/*
 *.rttm
 *.ipynb
 exp/*
+*.txt

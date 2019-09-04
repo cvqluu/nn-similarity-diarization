@@ -23,6 +23,31 @@ class LSTMSimilarity(nn.Module):
         x = self.fc2(x).squeeze(2)
         return x
 
+class LSTMSimilarityCos(nn.Module):
+
+    def __init__(self, input_size=256, hidden_size=256, num_layers=2):
+        super(LSTMSimilarityCos, self).__init__()
+        self.lstm = nn.LSTM(input_size,
+                            hidden_size,
+                            num_layers=num_layers,
+                            bidirectional=True,
+                            batch_first=True)
+        self.fc1 = nn.Linear(hidden_size*2, 64)
+        self.nl = nn.ReLU(inplace=True)
+        self.fc2 = nn.Linear(64, 1)
+
+        self.pdistlayer = pCosineSiamese()  
+
+    def forward(self, x):
+        cs = self.pdistlayer(x)
+        x, _ = self.lstm(x)
+        x = self.fc1(x)
+        x = self.nl(x)
+        x = torch.sigmoid(self.fc2(x).squeeze(2))
+        x += cs
+        return torch.clamp(x/2, 1e-16, 1.-1e-16)
+
+
 class pCosineSim(nn.Module):
 
     def __init__(self):
@@ -34,6 +59,18 @@ class pCosineSim(nn.Module):
             cs_row = torch.clamp(torch.mm(x[j].unsqueeze(1).transpose(0,1), x.transpose(0,1)) / (torch.norm(x[j]) * torch.norm(x, dim=1)), 1e-6)
             cs.append(cs_row)
         return torch.cat(cs)
+
+class pCosineSiamese(nn.Module):
+    
+    def __init__(self):
+        super(pCosineSiamese, self).__init__()
+    
+    def forward(self, x):
+        '''
+        split every element in last dimension/2 and take cosine distance
+        '''
+        x1, x2 = torch.split(x, x.shape[-1]//2, dim=-1)
+        return F.cosine_similarity(x1, x2, dim=-1)
 
 def subsequent_mask(size):
     "Mask out subsequent positions."
@@ -66,22 +103,22 @@ class TransformerSim(nn.Module):
 
 class XTransformerSim(nn.Module):
 
-    def __init__(self, d_model=256, nhead=4, num_encoder_layers=4, dim_feedforward=1024):
+    def __init__(self, d_model=256, nhead=4, num_encoder_layers=2, dim_feedforward=1024):
         super(XTransformerSim, self).__init__()
 
         self.tf = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward), num_encoder_layers)
-        self.fc1 = nn.Linear(d_model, d_model)
-        self.nl = nn.ReLU(inplace=True)
-        self.ln = nn.LayerNorm(d_model)
-        self.fc2 = nn.Linear(d_model, 1)
+        self.pdistlayer = pCosineSiamese()
+        self.fc1 = nn.Linear(d_model, 1)
+        self.weightsum = nn.Linear(2, 1)
 
     def forward(self, src):
+        cs = self.pdistlayer(src)
         x = self.tf(src)
-        x = self.fc1(x)
-        x = self.nl(x)
-        x = self.ln(x)
-        x = self.fc2(x)
-        return x.squeeze(-1)
+        x = torch.sigmoid(self.fc1(x).squeeze(-1))
+        
+        final = torch.stack([x, cs], dim=-1)
+        final = self.weightsum(final)
+        return final.squeeze(-1)
 
 
 class XTransformerLSTMSim(nn.Module):
@@ -161,6 +198,24 @@ class XTransformer(nn.Module):
         sim = self.pdist(x)
         return sim
 
+
+class XTransformerRes(nn.Module):
+
+    def __init__(self, d_model=128, nhead=8, num_encoder_layers=6, dim_feedforward=1024):
+        super(XTransformerRes, self).__init__()
+        self.tf = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward), num_encoder_layers)
+        self.pdist = pCosineSim()
+
+    def forward(self, src):
+        cs = self.pdist(src.squeeze(1))
+        x = self.tf(src)
+        x = x.squeeze(1)
+        x = F.normalize(x, p=2, dim=-1)
+        sim = self.pdist(x)
+        sim += cs
+        return torch.clamp(sim/2, 1e-16, 1.-1e-16)
+
+
 class XTransformerMask(nn.Module):
 
     def __init__(self, d_model=128, nhead=8, num_encoder_layers=6, dim_feedforward=1024):
@@ -178,6 +233,25 @@ class XTransformerMask(nn.Module):
         out = F.normalize(mask * src.squeeze(1), p=2, dim=-1)
         sim = self.pdist(out)
         return sim
+
+
+class XTransformerMaskRes(nn.Module):
+
+    def __init__(self, d_model=128, nhead=8, num_encoder_layers=6, dim_feedforward=1024):
+
+        super(XTransformerMaskRes, self).__init__()
+        self.tf = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward), num_encoder_layers)
+        self.pdist = pCosineSim()
+
+    def forward(self, src):
+        cs = self.pdist(src.squeeze(1))
+        mask = self.tf(src)
+        mask = mask.squeeze(1)
+        mask = torch.sigmoid(mask)
+        out = F.normalize(mask * src.squeeze(1), p=2, dim=-1)
+        sim = self.pdist(out)
+        sim += cs
+        return torch.clamp(sim/2, 1e-16, 1.-1e-16)
 
 
 

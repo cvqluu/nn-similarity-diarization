@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from data_io import dloader
-from models import XTransformerSim, XTransformerLSTMSim
+from models import XTransformerSim, XTransformerLSTMSim, LSTMSimilarityCos
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
@@ -28,9 +28,9 @@ def train():
     np.random.seed(seed=args.seed)
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    writer = SummaryWriter(comment='transformer_sim')
+    writer = SummaryWriter(comment='lstmres')
     # model = XTransformerSim()
-    model = XTransformerLSTMSim()
+    model = LSTMSimilarityCos()
     # model = nn.DataParallel(model)
     model.to(device)
     model.train()
@@ -53,12 +53,12 @@ def train():
         model.load_state_dict(torch.load(model_epoch_filename))
 
     
-    optimizer = torch.optim.Adam([{'params': model.parameters()}], 
+    optimizer = torch.optim.SGD([{'params': model.parameters()}], 
                                         lr=args.lr)
     
     print('Scheduler to step LR every {} epochs'.format(args.scheduler_period))
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.scheduler_period, gamma=0.1)
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.BCELoss()
 
     iterations = 0
 
@@ -73,7 +73,7 @@ def train():
                 print('TEST LOSS: {}'.format(test_loss))
                 continue
 
-        for batch_idx, (feats, labels) in enumerate(dl.get_batches()):
+        for batch_idx, (feats, labels, _) in enumerate(dl.get_batches()):
             iterations += 1
 
             feats = torch.FloatTensor(feats).to(device)
@@ -126,7 +126,7 @@ def test(model, device, criterion):
     with torch.no_grad():
         total_batches = 0
         total_loss = 0
-        for batch_idx, (feats, labels) in enumerate(dl_test.get_batches()):
+        for batch_idx, (feats, labels, _) in enumerate(dl_test.get_batches()):
             feats = torch.FloatTensor(feats).to(device)
             labels = torch.FloatTensor(labels).to(device)
             out = model(feats)
@@ -141,15 +141,15 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Transformer similarity scoring')
     parser.add_argument('--epochs', type=int, default=100,
                         help='number of epochs to train (default: 3)')
-    parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
+    parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
                         help='learning rate (default: 1e-4)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
     parser.add_argument('--seed', type=int, default=1234, metavar='S',
                         help='random seed (default: 1)')
-    parser.add_argument('--max-len', type=int, default=500,
+    parser.add_argument('--max-len', type=int, default=400,
                         help='max len')
-    parser.add_argument('--model-dir', type=str, default='./exp/xtransformer_sim_ch{}/',
+    parser.add_argument('--model-dir', type=str, default='./exp/lstmres_ch{}/',
                         help='Saved model paths')
     parser.add_argument('--scheduler-period', type=int, default=40,
                         help='Scheduler period (default: 10)')
@@ -196,7 +196,7 @@ if __name__ == "__main__":
     args = parse_args()
     rttm = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome/fullref.rttm'
     xbase = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome'
-    fold = 0
+    fold = args.fold
     base_path = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/ch{}/'.format(fold)
     tr_segs = os.path.join(base_path, 'train/segments')
     tr_xvecscp = os.path.join(base_path, 'train/xvector.scp')
@@ -205,5 +205,5 @@ if __name__ == "__main__":
     te_xvecscp = os.path.join(base_path, 'test/xvector.scp')
 
     dl = dloader(tr_segs, rttm, tr_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase)
-    dl_test = dloader(te_segs, rttm, te_xvecscp, max_len=300, pad_start=False, xvecbase_path=xbase)
+    dl_test = dloader(te_segs, rttm, te_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase, shuffle=False)
     train()

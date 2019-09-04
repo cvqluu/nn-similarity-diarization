@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from data_io import dloader, sim_matrix_target
-from models import XTransformerMask, subsequent_mask
+from models import XTransformerMask, XTransformerMaskRes, subsequent_mask
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
@@ -28,8 +28,9 @@ def train():
     np.random.seed(seed=args.seed)
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    writer = SummaryWriter(comment='xtransformer_mask')
-    model = XTransformerMask()
+    writer = SummaryWriter(comment='xt_mask')
+    # model = XTransformerMask()
+    model = XTransformerMaskRes()
     # model = nn.DataParallel(model)
     model.to(device)
     model.train()
@@ -57,7 +58,7 @@ def train():
     
     print('Scheduler to step LR every {} epochs'.format(args.scheduler_period))
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.scheduler_period, gamma=0.1)
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.BCELoss()
 
     iterations = 0
 
@@ -77,7 +78,6 @@ def train():
             labels = torch.FloatTensor(labels).to(device)
 
             out = model(feats)
-            
             loss = criterion(out.flatten(), labels.flatten())
             optimizer.zero_grad()
 
@@ -143,7 +143,7 @@ def parse_args():
                         help='random seed (default: 1)')
     parser.add_argument('--max-len', type=int, default=300,
                         help='max len')
-    parser.add_argument('--model-dir', type=str, default='./exp/xtransformer_mask_ch{}/',
+    parser.add_argument('--model-dir', type=str, default='./exp/xt_maskres_ch{}/',
                         help='Saved model paths')
     parser.add_argument('--scheduler-period', type=int, default=40,
                         help='Scheduler period (default: 10)')

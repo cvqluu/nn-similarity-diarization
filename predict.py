@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from data_io import dloader, sim_matrix_target, collate_sim_matrices, load_n_col
-from models import LSTMSimilarity
+from models import LSTMSimilarity, XTransformerMask
 from tqdm import tqdm
 from scipy.sparse.csgraph import laplacian
 from sklearn.cluster import KMeans, SpectralClustering
@@ -20,9 +20,9 @@ from sklearn.metrics import pairwise_distances
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Extract and diarize')
-    parser.add_argument('--model-path', type=str, default='./exp/lstm_sim_ch{}/final_100.pt',
+    parser.add_argument('--model-path', type=str, default='./exp/xtransformer_mask_ch{}/final_100.pt',
                         help='Saved model paths')
-    parser.add_argument('--model-type', type=str, default='lstm',
+    parser.add_argument('--model-type', type=str, default='mask',
                         help='Model type')
     parser.add_argument('--fold', type=int, default=0)
     parser.add_argument('--max-len', type=int, default=400)
@@ -46,6 +46,17 @@ def predict_matrices(model, dl_test):
             rids.append(rec_id)
     cm, cids = collate_sim_matrices(preds, rids)
     return cm, cids
+
+def predict_seq_matrices(model, dl_test):
+    preds = []
+    rids = []
+    with torch.no_grad():
+        for batch_idx, (feats, _, rec_id) in enumerate(dl_test.get_batches_seq()):
+            feats = torch.FloatTensor(feats).unsqueeze(1).to(device)
+            out = model(feats)
+            preds.append(out.detach().cpu().numpy())
+            rids.append(rec_id)
+    return preds, rids
 
 def cosine_sim_matrix(dl_test):
     preds = []
@@ -75,14 +86,20 @@ if __name__ == "__main__":
         print('-'*10)
 
         device = torch.device("cuda" if use_cuda else "cpu")
-        model = LSTMSimilarity()
+
+        if args.model_type == 'lstm':
+            model = LSTMSimilarity()
+            predfunc = predict_matrices
+        if args.model_type == 'mask':
+            model = XTransformerMask()
+            predfunc = predict_seq_matrices
+
         model.load_state_dict(torch.load(args.model_path))
         model.to(device)
         model.eval()
-        cm, cids = predict_matrices(model, dl_test)
+        cm, cids = predfunc(model, dl_test)
         mat_dir = './exp/ch_sim_mat'
         os.makedirs(mat_dir, exist_ok=True)
-
     else:
         cm, cids = cosine_sim_matrix(dl_test)
         mat_dir = './exp/ch_css_mat'

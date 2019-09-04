@@ -10,8 +10,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from data_io import dloader, sim_matrix_target
-from models import XTransformer, XTransformerRes, subsequent_mask
+from data_io import dloader
+from models import LSTMSimilarityCos
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
@@ -28,8 +28,8 @@ def train():
     np.random.seed(seed=args.seed)
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    writer = SummaryWriter(comment='xtres')
-    model = XTransformerRes()
+    writer = SummaryWriter(comment='rescos')
+    model = LSTMSimilarityCos()
     # model = nn.DataParallel(model)
     model.to(device)
     model.train()
@@ -52,7 +52,7 @@ def train():
         model.load_state_dict(torch.load(model_epoch_filename))
 
     
-    optimizer = torch.optim.Adam([{'params': model.parameters()}], 
+    optimizer = torch.optim.SGD([{'params': model.parameters()}], 
                                         lr=args.lr)
     
     print('Scheduler to step LR every {} epochs'.format(args.scheduler_period))
@@ -68,16 +68,18 @@ def train():
                 iterations += len(dl)
                 print('Skipped epoch {}'.format(epoch+1))
                 scheduler.step()
+                test_loss = test(model, device, criterion)
+                print('TEST LOSS: {}'.format(test_loss))
                 continue
 
-        for batch_idx, (feats, labels, _) in enumerate(dl.get_batches_seq()):
+        for batch_idx, (feats, labels, _) in enumerate(dl.get_batches()):
             iterations += 1
 
-            feats = torch.FloatTensor(feats).unsqueeze(1).to(device)
+            feats = torch.FloatTensor(feats).to(device)
             labels = torch.FloatTensor(labels).to(device)
 
             out = model(feats)
-            
+
             loss = criterion(out.flatten(), labels.flatten())
             optimizer.zero_grad()
 
@@ -85,7 +87,11 @@ def train():
             optimizer.step()
 
             total_loss += loss.item()
-            torch.cuda.empty_cache()
+
+            # if batch_idx != 0 and batch_idx % 100 == 0:
+            #     test_loss = test(model, device, criterion)
+            #     print('TEST LOSS: {}'.format(test_loss))
+
             if batch_idx % 1 == 0:
                 msg = "{}\tEpoch:{}[{}/{}], Loss:{:.4f} TLoss:{:.4f}, ({})".format(time.ctime(), epoch+1,
                     batch_idx+1, len(dl), loss.item(), total_loss / (batch_idx + 1), feats.shape)
@@ -95,18 +101,16 @@ def train():
 
         scheduler.step()
         if (epoch + 1) % args.checkpoint_interval == 0:
-
             model.eval().cpu()
             cp_filename = "epoch_{}.pt".format(epoch+1)
             cp_model_path = os.path.join(args.model_dir, cp_filename)
             torch.save(model.state_dict(), cp_model_path)
             model.to(device).train()
-            # remove_old_models()
-        
             test_loss = test(model, device, criterion)
             print('TEST LOSS: {}'.format(test_loss))
             model.train()
-            
+            # remove_old_models()
+        
     # ---- Final model saving -----
     model.eval().cpu()
     final_model_filename = "final_{}.pt".format(epoch+1)
@@ -115,13 +119,14 @@ def train():
     
     print('Training complete. Saved to {}'.format(final_model_path))
 
+
 def test(model, device, criterion):
     model.eval()
     with torch.no_grad():
         total_batches = 0
         total_loss = 0
-        for batch_idx, (feats, labels, _) in enumerate(dl_test.get_batches_seq()):
-            feats = torch.FloatTensor(feats).unsqueeze(1).to(device)
+        for batch_idx, (feats, labels, _) in enumerate(dl_test.get_batches()):
+            feats = torch.FloatTensor(feats).to(device)
             labels = torch.FloatTensor(labels).to(device)
             out = model(feats)
             loss = criterion(out.flatten(), labels.flatten())
@@ -129,6 +134,7 @@ def test(model, device, criterion):
             total_batches += 1
     model.train()
     return total_loss/total_batches
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Transformer similarity scoring')
@@ -140,9 +146,9 @@ def parse_args():
                         help='disables CUDA training')
     parser.add_argument('--seed', type=int, default=1234, metavar='S',
                         help='random seed (default: 1)')
-    parser.add_argument('--max-len', type=int, default=400,
+    parser.add_argument('--max-len', type=int, default=500,
                         help='max len')
-    parser.add_argument('--model-dir', type=str, default='./exp/xtres_ch{}/',
+    parser.add_argument('--model-dir', type=str, default='./exp/rescos_ch{}/',
                         help='Saved model paths')
     parser.add_argument('--scheduler-period', type=int, default=40,
                         help='Scheduler period (default: 10)')
@@ -155,7 +161,7 @@ def parse_args():
     parser.add_argument('--pretrain', action='store_true', default=False,
                             help='Will try and load weights that have been trained on another model')
     parser.add_argument('--epoch-resume', type=int, default=None, help='Resume from a chosen epoch')
-    parser.add_argument('--fold', type=int, default=0, help='Train fold')
+    parser.add_argument('--fold', type=int, default=0)
     args = parser.parse_args()
     args._start_time = time.ctime()
     args.model_dir = args.model_dir.format(args.fold)
