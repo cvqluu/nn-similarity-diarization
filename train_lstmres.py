@@ -28,9 +28,8 @@ def train():
     np.random.seed(seed=args.seed)
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    writer = SummaryWriter(comment='xtsim')
-    model = XTransformerSim()
-    # model = LSTMSimilarityCos()
+    writer = SummaryWriter(comment='lstmres')
+    model = LSTMSimilarityCos()
     # model = nn.DataParallel(model)
     model.to(device)
     model.train()
@@ -150,7 +149,7 @@ def parse_args():
                         help='random seed (default: 1)')
     parser.add_argument('--max-len', type=int, default=400,
                         help='max len')
-    parser.add_argument('--model-dir', type=str, default='./exp/xtsim_ch{}/',
+    parser.add_argument('--model-dir', type=str, default='./exp/lstmres_ch{}/',
                         help='Saved model paths')
     parser.add_argument('--scheduler-period', type=int, default=40,
                         help='Scheduler period (default: 10)')

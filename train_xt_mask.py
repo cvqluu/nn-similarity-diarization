@@ -76,7 +76,7 @@ def train():
 
             feats = torch.FloatTensor(feats).to(device)
             labels = torch.FloatTensor(labels).to(device)
-            src_mask = torch.bool(src_mask == 1).to(device)
+            src_mask = torch.BoolTensor(src_mask == 1).to(device)
             out = model(feats, src_mask=src_mask)
             lmask = lmask.flatten()
 
@@ -87,7 +87,6 @@ def train():
             optimizer.step()
 
             total_loss += loss.item()
-            torch.cuda.empty_cache()
             if batch_idx % 1 == 0:
                 msg = "{}\tEpoch:{}[{}/{}], Loss:{:.4f} TLoss:{:.4f}, ({})".format(time.ctime(), epoch+1,
                     batch_idx+1, len(dl), loss.item(), total_loss / (batch_idx + 1), feats.shape)
