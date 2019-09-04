@@ -76,7 +76,7 @@ def train():
 
             feats = torch.FloatTensor(feats).to(device)
             labels = torch.FloatTensor(labels).to(device)
-            src_mask = torch.ByteTensor(src_mask == 1)
+            src_mask = torch.bool(src_mask == 1).to(device)
             out = model(feats, src_mask=src_mask)
             lmask = lmask.flatten()
 

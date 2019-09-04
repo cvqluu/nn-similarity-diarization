@@ -326,7 +326,7 @@ class dloader:
                 yield self.prep_batches(batch_v, batch_l, batch_ids)
 
             batch_v.append(torch.FloatTensor(xvecs))
-            batch_l.append(torch.LongTensor(labs))
+            batch_l.append(torch.FloatTensor(labs))
             batch_ids.append(rec_id)
         return self.prep_batches(batch_v, batch_l, batch_ids)
             

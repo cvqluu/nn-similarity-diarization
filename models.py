@@ -268,7 +268,7 @@ class XTransformerMaskRes(nn.Module):
         out = F.normalize(mask * src, p=2, dim=-1)
         sim = self.pdist(out.transpose(0, 1))
         sim += cs
-        return torch.clamp(sim/2, 1e-16, 1.-1e-16)
+        return torch.clamp(sim/2, 1e-15, 1.-1e-15)
 
 
 
