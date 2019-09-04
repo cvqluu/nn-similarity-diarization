@@ -53,7 +53,7 @@ def train():
         model.load_state_dict(torch.load(model_epoch_filename))
 
     
-    optimizer = torch.optim.Adam([{'params': model.parameters()}], 
+    optimizer = torch.optim.SGD([{'params': model.parameters()}], 
                                         lr=args.lr)
     
     print('Scheduler to step LR every {} epochs'.format(args.scheduler_period))
@@ -71,14 +71,16 @@ def train():
                 scheduler.step()
                 continue
 
-        for batch_idx, (feats, labels, _) in enumerate(dl.get_batches_seq()):
+        for batch_idx, (feats, labels, _, src_mask, lmask) in enumerate(dl.get_batches_t()):
             iterations += 1
 
-            feats = torch.FloatTensor(feats).unsqueeze(1).to(device)
+            feats = torch.FloatTensor(feats).to(device)
             labels = torch.FloatTensor(labels).to(device)
+            src_mask = torch.ByteTensor(src_mask == 1)
+            out = model(feats, src_mask=src_mask)
+            lmask = lmask.flatten()
 
-            out = model(feats)
-            loss = criterion(out.flatten(), labels.flatten())
+            loss = criterion(out.flatten()[lmask], labels.flatten()[lmask])
             optimizer.zero_grad()
 
             loss.backward()
@@ -135,7 +137,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Transformer similarity scoring')
     parser.add_argument('--epochs', type=int, default=100,
                         help='number of epochs to train (default: 3)')
-    parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
+    parser.add_argument('--batch-size', type=int, default=50,
+                        help='batch size')
+    parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
                         help='learning rate (default: 1e-4)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
@@ -198,6 +202,6 @@ if __name__ == "__main__":
     te_segs = os.path.join(base_path, 'test/segments')
     te_xvecscp = os.path.join(base_path, 'test/xvector.scp')
 
-    dl = dloader(tr_segs, rttm, tr_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase)
+    dl = dloader(tr_segs, rttm, tr_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase, batch_size=args.batch_size)
     dl_test = dloader(te_segs, rttm, te_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase, shuffle=False)
     train()

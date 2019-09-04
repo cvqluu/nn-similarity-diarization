@@ -74,7 +74,7 @@ class pbCosineSim(nn.Module):
         '''
         cs = []
         for j in range(x.shape[1]):
-            cs_row = torch.clamp(torch.bmm(x[:,j,:].unsqueeze(1), x.transpose(1,2)) / (torch.norm(x[:,j,:], dim=-1).unsqueeze(1) * torch.norm(x, dim=-1)).unsqueeze(1), 1e-6)
+            cs_row = torch.clamp(torch.bmm(x[:, j, :].unsqueeze(1), x.transpose(1,2)) / (torch.norm(x[:, j, :], dim=-1).unsqueeze(1) * torch.norm(x, dim=-1)).unsqueeze(1), 1e-6)
             cs.append(cs_row)
         return torch.cat(cs, dim=1)
 
@@ -259,15 +259,14 @@ class XTransformerMaskRes(nn.Module):
 
         super(XTransformerMaskRes, self).__init__()
         self.tf = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward), num_encoder_layers)
-        self.pdist = pCosineSim()
+        self.pdist = pbCosineSim()
 
-    def forward(self, src):
-        cs = self.pdist(src.squeeze(1))
-        mask = self.tf(src)
-        mask = mask.squeeze(1)
+    def forward(self, src, src_mask=None):
+        cs = self.pdist(src.transpose(0, 1))
+        mask = self.tf(src, src_key_padding_mask=src_mask)
         mask = torch.sigmoid(mask)
-        out = F.normalize(mask * src.squeeze(1), p=2, dim=-1)
-        sim = self.pdist(out)
+        out = F.normalize(mask * src, p=2, dim=-1)
+        sim = self.pdist(out.transpose(0, 1))
         sim += cs
         return torch.clamp(sim/2, 1e-16, 1.-1e-16)
 

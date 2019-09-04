@@ -1,9 +1,12 @@
 import os
+import torch
 
 import kaldi_io
 import numpy as np
 from sklearn.metrics import pairwise_distances
 from sklearn.preprocessing import LabelEncoder
+
+from torch.nn.utils.rnn import pad_sequence
 
 def read_xvec(file):
     return kaldi_io.read_vec_flt(file)
@@ -238,7 +241,7 @@ def batch_matrix(xvecpairs, labels, factor=2):
 
 class dloader:
 
-    def __init__(self, segs, rttm, xvec_scp, max_len=400, pad_start=False, xvecbase_path=None, shuffle=True):
+    def __init__(self, segs, rttm, xvec_scp, max_len=400, pad_start=False, xvecbase_path=None, shuffle=True, batch_size=50):
         assert os.path.isfile(segs)
         assert os.path.isfile(rttm)
         assert os.path.isfile(xvec_scp)
@@ -249,6 +252,7 @@ class dloader:
         self.max_len = max_len
         self.pad_start = pad_start
         self.shuffle = shuffle
+        self.batch_size = batch_size
 
     def __len__(self):
         return np.sum(self.factors)
@@ -292,3 +296,30 @@ class dloader:
             pwise_labels = sim_matrix_target(labels)
             yield xvecs, pwise_labels, rec_id
 
+    
+    def prep_batches(self, xv, ls, ids):
+        lens = np.array([v.shape[0] for v in xv])
+        maxlen = np.max(lens)
+        mask = np.vstack([np.concatenate([np.zeros(l), + np.ones(maxlen-l)]) for l in lens]).astype(int)
+        return pad_sequence(xv), ls, ids, mask, self.labelmask(mask)
+
+    @staticmethod
+    def labelmask(mask):
+        lmask = np.repeat(mask[:,:,np.newaxis], mask.shape[1], axis=-1)
+        lmask = lmask + np.transpose(lmask, axes=[0, 2, 1])
+        return lmask == 0
+
+    def get_batches_t(self):
+        batch_v = []
+        batch_l = []
+        batch_ids = []
+        for xvecs, labs, rec_id in self.get_batches_seq():
+            if len(batch_v) == self.batch_size:
+                yield self.prep_batches(batch_v, batch_l, batch_ids)
+
+            batch_v.append(xvecs)
+            batch_l.append(labs)
+            batch_ids.append(rec_id)
+        return self.prep_batches(batch_v, batch_l, batch_ids)
+            
+        
