@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from data_io import dloader, sim_matrix_target, collate_sim_matrices, load_n_col
-from models import LSTMSimilarity, XTransformerMask
+from models import LSTMSimilarity, LSTMSimilarityCos, XTransformerMask
 from tqdm import tqdm
 from scipy.sparse.csgraph import laplacian
 from sklearn.cluster import KMeans, SpectralClustering
@@ -20,7 +20,9 @@ from sklearn.metrics import pairwise_distances
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Extract and diarize')
-    parser.add_argument('--model-path', type=str, default='./exp/xtransformer_mask_ch{}/final_100.pt',
+    parser.add_argument('--model-path', type=str, default='./exp/{}_ch{}/final_100.pt',
+                        help='Saved model paths')
+    parser.add_argument('--mat-dir', type=str, default='./exp/ch_{}_mat',
                         help='Saved model paths')
     parser.add_argument('--model-type', type=str, default='mask',
                         help='Model type')
@@ -31,7 +33,10 @@ def parse_args():
     parser.add_argument('--cosine', action='store_true', default=False,
                         help='simply takes the cosine sim matrix')
     args = parser.parse_args()
-    args.model_path = args.model_path.format(args.fold)
+    assert args.model_type in ['lstm', 'mask', 'lstmres']
+
+    args.mat_dir = args.mat_dir.format(args.model_type)
+    args.model_path = args.model_path.format(args.model_type, args.fold)
     pprint(vars(args))
     return args
 
@@ -93,12 +98,16 @@ if __name__ == "__main__":
         if args.model_type == 'mask':
             model = XTransformerMask()
             predfunc = predict_seq_matrices
+        if args.model_type == 'lstmres':
+            model = LSTMSimilarityCos()
+            predfunc = predict_matrices
+        
 
         model.load_state_dict(torch.load(args.model_path))
         model.to(device)
         model.eval()
         cm, cids = predfunc(model, dl_test)
-        mat_dir = './exp/ch_sim_mat'
+        mat_dir = args.mat_dir
         os.makedirs(mat_dir, exist_ok=True)
     else:
         cm, cids = cosine_sim_matrix(dl_test)

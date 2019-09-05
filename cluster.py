@@ -134,11 +134,25 @@ def sort_and_cat(rttms, column=1):
         final_lines += list(all_rows[rindexes])
     return final_lines
 
-if __name__ == "__main__":
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Cluster')
+    parser.add_argument('--mat-dir', type=str, default='./exp/ch_{}_mat',
+                        help='Saved model paths')
+    parser.add_argument('--model-type', type=str, default='mask',
+                        help='Model type')
+    args = parser.parse_args()
+    assert args.model_type in ['lstm', 'mask', 'lstmres']
+
+    args.mat_dir = args.mat_dir.format(args.model_type)
+    pprint(vars(args))
+    return args
+
+if __name__ == "__main__":
+    args = parse_args()
     te_segs = 'exp/ch_segments'
     # mat_dir = './exp/ch_css_mat'
-    mat_dir = './exp/ch_sim_mat'
+    mat_dir = args.mat_dir
     cm_npys = os.path.join(mat_dir, '*.npy')
     cids = []
     cm = []
@@ -148,9 +162,9 @@ if __name__ == "__main__":
         cm.append(np.load(mpath))
         cids.append(rid)
 
-    betavals = np.linspace(0.9, 0.94, 5)
+    betavals = np.linspace(1., 1.1, 5)
     for beta in tqdm(betavals):
-        rttmdir = './exp/maskbeta_{}'.format(beta)
+        rttmdir = './exp/{}beta_{}'.format(args.model_type, beta)
         os.makedirs(rttmdir, exist_ok=True)
         rttm_path = os.path.join(rttmdir, 'hyp.rttm')
         make_rttm(te_segs, cids, cm, rttm_path, beta=beta)

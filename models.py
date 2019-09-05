@@ -127,14 +127,14 @@ class XTransformerSim(nn.Module):
         self.tf = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward), num_encoder_layers)
         self.pdistlayer = pCosineSiamese()
         self.fc1 = nn.Linear(d_model, 1)
-        # self.weightsum = nn.Linear(2, 1)
+        self.weightsum = nn.Linear(2, 1)
 
     def forward(self, src):
         cs = self.pdistlayer(src)
         x = self.tf(src)
         x = torch.sigmoid(self.fc1(x).squeeze(-1))
-        x = x + cs
-        return torch.clamp(x/2, 1e-16, 1.-1e-16)
+        x = torch.stack([src, cs], dim=-1)
+        return self.weightsum(x).squeeze(-1)
 
 
 class XTransformerLSTMSim(nn.Module):
