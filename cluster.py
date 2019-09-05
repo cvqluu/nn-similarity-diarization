@@ -14,7 +14,7 @@ from data_io import dloader, sim_matrix_target, collate_sim_matrices, load_n_col
 from models import LSTMSimilarity
 from tqdm import tqdm
 from scipy.sparse.csgraph import laplacian
-from sklearn.cluster import KMeans, SpectralClustering
+from sklearn.cluster import KMeans, SpectralClustering, AgglomerativeClustering
 import scipy.cluster.hierarchy as hcluster
 
 
@@ -50,9 +50,9 @@ def spectral_clustering(S, beta=1e-2):
     km = KMeans(n_clusters=P.shape[1])  
     return km.fit_predict(P)
 
-# def agg_clustering(vectors):
-    # cluster_labels = hcluster.fclusterdata(rec_xvecs, t=args.threshold, criterion='distance', method='average')
-
+def agg_clustering(S, thresh=0.):
+    ahc = AgglomerativeClustering(n_clusters=None, affinity='precomputed', linkage='average', compute_full_tree=True, distance_threshold=thresh)
+    return ahc.fit_predict(S)
 
 def assign_segments(pred_labels, events):
     entries = []
@@ -93,7 +93,7 @@ def lines_to_file(lines, filename, wmode="w+"):
         for line in lines:
             fp.write(line)
 
-def make_rttm(segments, cids, cm, rttm_file, beta=1e-2):
+def make_rttm(segments, cids, cm, rttm_file, ctype='sc', cparam=1e-2):
     if os.path.isfile(rttm_file):
         os.remove(rttm_file)
     segment_cols = load_n_col(segments, numpy=True)
@@ -108,7 +108,10 @@ def make_rttm(segments, cids, cm, rttm_file, beta=1e-2):
         seg_indexes = segment_cols[1] == rec_id
         ev0 = events0[seg_indexes]
         assert len(smatrix) == len(ev0)
-        pred_labels = spectral_clustering(smatrix, beta=beta)
+        if ctype == 'sc':
+            pred_labels = spectral_clustering(smatrix, beta=cparam)
+        if ctype == 'ahc':
+            pred_labels = agg_clustering(smatrix, thresh=cparam)    
         entries = assign_segments(pred_labels, ev0)
         lines = rttm_lines_from_entries(entries, rec_id)
         lines_to_file(lines, rttm_file, wmode='a')
@@ -141,8 +144,10 @@ def parse_args():
                         help='Saved model paths')
     parser.add_argument('--model-type', type=str, default='mask',
                         help='Model type')
+    parser.add_argument('--cluster-type', type=str, default='sc', help='clustering type')
     args = parser.parse_args()
     assert args.model_type in ['lstm', 'mask', 'lstmres']
+    assert args.cluster_type in ['sc', 'ahc']
 
     args.mat_dir = args.mat_dir.format(args.model_type)
     pprint(vars(args))
@@ -162,9 +167,13 @@ if __name__ == "__main__":
         cm.append(np.load(mpath))
         cids.append(rid)
 
-    betavals = np.linspace(1., 1.1, 5)
-    for beta in tqdm(betavals):
-        rttmdir = './exp/{}beta_{}'.format(args.model_type, beta)
+    if args.cluster_type == 'sc':
+        cparam_range = np.linspace(1., 1.1, 5)
+    if args.cluster_type == 'ahc':
+        cparam_range = np.linspace(-0.3, 0.3, 9)
+
+    for cparam in tqdm(cparam_range):
+        rttmdir = './exp/{}_{}_{}'.format(args.model_type, args.cluster_type, cparam)
         os.makedirs(rttmdir, exist_ok=True)
         rttm_path = os.path.join(rttmdir, 'hyp.rttm')
-        make_rttm(te_segs, cids, cm, rttm_path, beta=beta)
+        make_rttm(te_segs, cids, cm, rttm_path, ctype=args.cluster_type, cparam=cparam)

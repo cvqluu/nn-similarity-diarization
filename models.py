@@ -35,7 +35,7 @@ class LSTMSimilarityCos(nn.Module):
         self.fc1 = nn.Linear(hidden_size*2, 64)
         self.nl = nn.ReLU()
         self.fc2 = nn.Linear(64, 1)
-
+        self.weightsum = nn.Linear(2,1)
         self.pdistlayer = pCosineSiamese()  
 
     def forward(self, x):
@@ -44,8 +44,8 @@ class LSTMSimilarityCos(nn.Module):
         x = self.fc1(x)
         x = self.nl(x)
         x = torch.sigmoid(self.fc2(x).squeeze(2))
-        x = x + cs
-        return torch.clamp(x/2, 1e-16, 1.-1e-16)
+        x = torch.stack([x, cs], dim=-1)
+        return self.weightsum(x).squeeze(-1)
 
 
 class pCosineSim(nn.Module):
