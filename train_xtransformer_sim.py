@@ -58,7 +58,7 @@ def train():
     
     print('Scheduler to step LR every {} epochs'.format(args.scheduler_period))
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.scheduler_period, gamma=0.1)
-    criterion = nn.BCELoss()
+    criterion = nn.BCEWithLogitsLoss()
 
     iterations = 0
 

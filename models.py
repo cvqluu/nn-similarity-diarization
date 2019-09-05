@@ -133,7 +133,7 @@ class XTransformerSim(nn.Module):
         cs = self.pdistlayer(src)
         x = self.tf(src)
         x = torch.sigmoid(self.fc1(x).squeeze(-1))
-        x = torch.stack([src, cs], dim=-1)
+        x = torch.stack([x, cs], dim=-1)
         return self.weightsum(x).squeeze(-1)
 
 
