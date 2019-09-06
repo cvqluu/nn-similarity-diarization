@@ -156,7 +156,6 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     te_segs = 'exp/ch_segments'
-    # mat_dir = './exp/ch_css_mat'
     mat_dir = args.mat_dir
     cm_npys = os.path.join(mat_dir, '*.npy')
     cids = []
@@ -168,12 +167,14 @@ if __name__ == "__main__":
         cids.append(rid)
 
     if args.cluster_type == 'sc':
-        cparam_range = np.linspace(1., 1.1, 5)
+        cparam_range = np.linspace(0.95, 1.05, 10)
     if args.cluster_type == 'ahc':
-        cparam_range = np.linspace(-0.3, 0.3, 9)
+        cparam_range = np.linspace(-2, 2, 9)
+
+    os.makedirs('./exp/{}'.format(args.model_type), exist_ok=True)
 
     for cparam in tqdm(cparam_range):
-        rttmdir = './exp/{}_{}_{}'.format(args.model_type, args.cluster_type, cparam)
+        rttmdir = './exp/{}/{}_{}'.format(args.model_type, args.cluster_type, cparam)
         os.makedirs(rttmdir, exist_ok=True)
         rttm_path = os.path.join(rttmdir, 'hyp.rttm')
         make_rttm(te_segs, cids, cm, rttm_path, ctype=args.cluster_type, cparam=cparam)

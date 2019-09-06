@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from data_io import dloader
-from models import XTransformerSim, XTransformerLSTMSim, LSTMSimilarityCos
+from models import LSTMSimilarityCos
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 

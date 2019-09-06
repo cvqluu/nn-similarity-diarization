@@ -121,20 +121,21 @@ class TransformerSim(nn.Module):
 
 class XTransformerSim(nn.Module):
 
-    def __init__(self, d_model=256, nhead=4, num_encoder_layers=2, dim_feedforward=512):
+    def __init__(self, d_model=256, nhead=4, num_encoder_layers=4, dim_feedforward=512):
         super(XTransformerSim, self).__init__()
 
         self.tf = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward), num_encoder_layers)
-        self.pdistlayer = pCosineSiamese()
+        # self.pdistlayer = pCosineSiamese()
         self.fc1 = nn.Linear(d_model, 1)
-        self.weightsum = nn.Linear(2, 1)
+        # self.weightsum = nn.Linear(2, 1)
 
     def forward(self, src):
-        cs = self.pdistlayer(src)
+        # cs = self.pdistlayer(src)
         x = self.tf(src)
-        x = torch.sigmoid(self.fc1(x).squeeze(-1))
-        x = torch.stack([x, cs], dim=-1)
-        return self.weightsum(x).squeeze(-1)
+        x = self.fc1(x).squeeze(-1)
+        # x = torch.stack([x, cs], dim=-1)
+        # x = self.weightsum(x).squeeze(-1)
+        return x
 
 
 class XTransformerLSTMSim(nn.Module):

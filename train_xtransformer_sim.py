@@ -152,7 +152,7 @@ def parse_args():
                         help='max len')
     parser.add_argument('--model-dir', type=str, default='./exp/xtsim_ch{}/',
                         help='Saved model paths')
-    parser.add_argument('--scheduler-period', type=int, default=20,
+    parser.add_argument('--scheduler-period', type=int, default=40,
                         help='Scheduler period (default: 10)')
     parser.add_argument('--checkpoint-interval', type=int, default=1,
                         help='Number of epochs to run before saving the model to disk for checkpointing (default: 5)') 

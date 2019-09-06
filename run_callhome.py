@@ -26,7 +26,7 @@ def sort_and_cat(rttms):
 
 if __name__ == '__main__':
     model_type = 'lstm'
-    ctype = 'ahc'
+    ctype = 'sc'
     # for fold in range(5):
     #     cmd = 'python predict.py --fold {} --model-type {}'.format(fold, model_type)
     #     subprocess.call(cmd, shell=True)
@@ -36,10 +36,10 @@ if __name__ == '__main__':
     # with open('./exp/ch_segments', 'w+') as fp:
     #     for line in all_seglines:
     #         fp.write(line)
-    
+
     cmd = 'python cluster.py --model-type {} --cluster-type {}'.format(model_type, ctype)
     subprocess.call(cmd, shell=True)
 
     for rttm in glob('./exp/{}_{}_*/hyp.rttm'.format(model_type, ctype)):
-        cmd = "perl md-eval.pl -1 -c 0.25 -s {} -r /disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome/fullref.rttm >> ./{}_der.txt".format(rttm, model_type)
+        cmd = "perl md-eval.pl -1 -c 0.25 -s {} -r /disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome/fullref.rttm >> ./{}_{}_der.txt".format(rttm, model_type, ctype)
         subprocess.Popen(cmd, shell=True)
