@@ -5,7 +5,7 @@
 
 stage=0
 nnet_dir=0006_callhome_diarization_v2_1a/exp/xvector_nnet_1a
-nj=20
+nj=10
 train_cmd=run.pl
 callhome_path= #path to raw callhome data
 xvector_dir= #path to extracted xvectors
@@ -46,5 +46,5 @@ if [ $stage -le 3 ]; then
     diarization/nnet3/xvector/extract_xvectors.sh --cmd "$train_cmd" \
         --nj $nj --window 1.5 --period 0.75 --apply-cmn false \
         --min-segment 0.5 $nnet_dir \
-        data/callhome_cmn $nnet_dir/xvectors_callhome
+        data/callhome_cmn $xvector_dir
 fi
