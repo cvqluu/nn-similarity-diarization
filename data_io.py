@@ -5,6 +5,7 @@ import kaldi_io
 import numpy as np
 from sklearn.metrics import pairwise_distances
 from sklearn.preprocessing import LabelEncoder
+from tqdm import tqdm
 
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
@@ -73,7 +74,7 @@ def segment_labels(segments, rttm, xvectorscp, xvecbase_path=None):
 
     rec_batches = []
 
-    for rec_id in recording_ids:
+    for rec_id in tqdm(recording_ids):
         seg_indexes = segment_cols[1] == rec_id
         rttm_indexes = rttm_cols[1] == rec_id
         ev0 = events0[seg_indexes]
@@ -133,7 +134,8 @@ def make_k_fold_dataset(rec_ids, rec_batches, base_path, k=5):
     rec_ids = np.array(rec_ids)
     rec_batches = np.array(rec_batches)
     splits = np.array_split(p, k)
-    for i, te in enumerate(splits):
+    print('Making splits...')
+    for i, te in enumerate(tqdm(splits)):
         fold_path = os.path.join(base_path, 'ch{}'.format(i))
         train_path = os.path.join(fold_path, 'train')
         test_path = os.path.join(fold_path, 'test')
