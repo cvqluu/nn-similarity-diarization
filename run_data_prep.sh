@@ -7,8 +7,8 @@ stage=0
 nnet_dir=0006_callhome_diarization_v2_1a/exp/xvector_nnet_1a
 nj=10
 train_cmd=run.pl
-callhome_path= #path to raw callhome data
-xvector_dir= #path to extracted xvectors
+callhome_path=/PATH/TO/CALLHOME #path to raw callhome data
+xvector_dir=/PATH/TO/XVECS #path to extracted xvectors
 
 if [ $stage -le 0 ]; then
     local/make_callhome.sh $callhome_path data

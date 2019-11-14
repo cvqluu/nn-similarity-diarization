@@ -26,7 +26,7 @@ callhome_path=/PATH/TO/CALLHOME #path to raw callhome data
 xvector_dir=/PATH/TO/XVECS #path to extracted xvectors
 ```
 
-These need to point to where the CALLHOME dataset is and also where you would like the extracted x-vectors to reside. Once this is done, this script is copied to the Kaldi recipe folder for CALLHOME (as existing data prep scripts are leveraged):
+These need to point to where the CALLHOME dataset is and also where you would like the extracted x-vectors to reside (make sure to use an absolute path). Once this is done, copy this script to the Kaldi recipe folder for CALLHOME (as existing data prep scripts are leveraged):
 
 The location of the Kaldi installation will be referred to as `$KALDI_PATH` in the following instructions.
 
