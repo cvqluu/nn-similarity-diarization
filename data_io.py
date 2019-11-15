@@ -112,23 +112,6 @@ def sim_matrix_target(labels):
     dist = 1.0 - pairwise_distances(le.fit_transform(labels)[:,np.newaxis], metric='hamming')
     return dist
 
-# def batch_matrix(xvecpairs, labels, factor=2):
-#     remainder = len(labels) % factor
-#     newlen = len(labels) - remainder
-#     if remainder != 0:
-#         xvecpairs = xvecpairs[:-remainder, :-remainder, :]
-#         labels = labels[:-remainder, :-remainder]
-#     split_batch = []
-#     split_batch_labs = []
-#     for i in range(factor):
-#         start = i * newlen//factor
-#         end = (i+1) * newlen//factor
-#         split_rows = np.split(xvecpairs[:,start:end,:], factor)
-#         split_labs = np.split(labels[:,start:end], factor)
-#         split_batch += split_rows
-#         split_batch_labs += split_labs
-#     return np.array(split_batch), np.array(split_batch_labs)
-
 def make_k_fold_dataset(rec_ids, rec_batches, base_path, k=5):
     p = np.random.choice(np.arange(len(rec_ids)), len(rec_ids), replace=False)
     rec_ids = np.array(rec_ids)

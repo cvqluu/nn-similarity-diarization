@@ -26,15 +26,12 @@ if [ $stage -le 1 ]; then
       data/callhome exp/make_vad mfcc
     utils/fix_data_dir.sh data/callhome
 
-    for name in callhome; do
-        local/nnet3/xvector/prepare_feats.sh --nj 40 --cmd "$train_cmd" \
-        data/$name data/${name}_cmn exp/${name}_cmn
-        cp data/$name/vad.scp data/${name}_cmn/
-        if [ -f data/$name/segments ]; then
-            cp data/$name/segments data/${name}_cmn/
-        fi
-        utils/fix_data_dir.sh data/${name}_cmn
-    done
+    local/nnet3/xvector/prepare_feats.sh --nj 40 --cmd "$train_cmd" \
+        data/callhome data/callhome_cmn exp/callhome_cmn
+    cp data/callhome/vad.scp data/callhome_cmn/
+    cp data/callhome/segments data/callhome_cmn/
+    utils/fix_data_dir.sh data/callhome_cmn
+
 fi
 
 if [ $stage -le 2 ]; then
