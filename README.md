@@ -61,7 +61,41 @@ folds_path
 
 # Training
 
-TODO
+The primary training script `train.py` is mostly defined by the config file which it reads. An example config file is shown in `configs/example.cfg`:
+
+```ini
+[Datasets]
+data_path = /PATH/TO/FOLDS_PATH
+
+[Model]
+model_type = lstm
+
+[Hyperparams]
+lr = 0.2
+max_len = 400
+no_cuda = False
+seed = 1234
+num_epochs = 100
+scheduler_steps = [40, 80]
+scheduler_lambda = 0.1
+
+[Outputs]
+base_model_dir = exp/example_models_folder
+```
+
+The main fields which need to be configured are `data_path` and `base_model_dir`. The first corresponds to `$folds_path` used above and the latter will be the place in which the models are stored.
+
+Once this cfg file is configured, a model can be trained on a fold like so:
+
+```sh
+python train.py --cfg configs/<your_config>.cfg --fold 0
+```
+
+Alternatively, if you wish to train all folds sequentially with one script:
+
+```sh
+python run_train_ch_folds.py configs/<your_config>.cfg
+```
 
 # Evaluation
 
