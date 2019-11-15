@@ -12,7 +12,7 @@ Kaldi, python, kaldi_io, scipy, sklearn, torch, CALLHOME dataset
 
 # TL;DR
 
-(WIP): You can run the whole recipe with `run.sh`
+(TODO WIP): You can run the whole recipe with `run.sh`
 
 # Data preparation
 
@@ -60,7 +60,7 @@ folds_path
 ├── ch1
 |   ├── train
 |   └── test
-...
+├── ...
 ```
 
 # Training
@@ -113,6 +113,7 @@ folds_path
 ├── ch1
 |   ├── epoch_1.pt
 |   ├── ...
+├── ...
 ```
 
 # Evaluation
