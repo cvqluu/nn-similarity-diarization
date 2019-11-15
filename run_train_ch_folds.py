@@ -1,7 +1,10 @@
 import subprocess
+import sys
 
 if __name__ == '__main__':
-    train_script = 'train_xtransformer_sim.py'
-    for fold in range(1,5):
-        cmd = 'python {} --fold {}'.format(train_script, fold)
+    cfg = sys.argv[1]
+    train_script = 'train.py'
+    
+    for fold in range(5):
+        cmd = 'python {} --cfg {} --fold {}'.format(train_script, cfg, fold)
         subprocess.call(cmd, shell=True)
