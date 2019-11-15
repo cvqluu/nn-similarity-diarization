@@ -56,7 +56,7 @@ def parse_config(args):
     args.scheduler_steps = np.array(json.loads(config.get('Hyperparams', 'scheduler_steps'))).astype(int)
     args.scheduler_lambda = config['Hyperparams'].getfloat('scheduler_lambda', fallback=0.1)
 
-    args.model_dir = config['Outputs']['base_model_dir']
+    args.base_model_dir = config['Outputs']['base_model_dir']
     args.checkpoint_interval = config['Outputs'].getint('checkpoint_interval')
     return args
 
