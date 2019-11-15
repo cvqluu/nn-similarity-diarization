@@ -225,20 +225,35 @@ def batch_matrix(xvecpairs, labels, factor=2):
             split_batch_labs.append(mini_labels)
     return split_batch, split_batch_labs
 
+
+def group_recs(utt2spk, segments, xvecscp):
+    utts, labels = load_n_col(utt2spk, numpy=True)
+    uspkdict = {k:v for k,v in zip(utts, labels)}
+    xutts, xpaths = load_n_col(xvecscp, numpy=True)
+    xdict = {k:v for k,v in zip(xutts, xpaths)}
+    sutts, srecs, _, _ = load_n_col(segments, numpy=True)
+    rec_ids = sorted(list(set(srecs)))
+    
+    rec_batches = []
+    for i in rec_ids:
+        rutts = sutts[srecs == i]
+        rlabs = [uspkdict[u] for u in rutts]
+        rpaths = [xdict[u] for u in rutts]
+        rec_batches.append([rlabs, rpaths])
+    return rec_ids, rec_batches
+
 class dloader:
 
-    def __init__(self, segs, rttm, xvec_scp, max_len=400, pad_start=False, xvecbase_path=None, shuffle=True, batch_size=50):
-        assert os.path.isfile(segs)
-        assert os.path.isfile(rttm)
-        assert os.path.isfile(xvec_scp)
-        self.ids, self.rec_batches = segment_labels(segs, rttm, xvec_scp, xvecbase_path=xvecbase_path)
+    def __init__(self, data_path, max_len=400, xvecbase_path=None, shuffle=True):
+        utt2spk = os.path.join(data_path, 'utt2spk')
+        segments = os.path.join(data_path, 'segments')
+        xvecscp = os.path.join(data_path, 'xvector.scp')
+        self.ids, self.rec_batches = group_recs(utt2spk, segments, xvecscp)
         self.lengths = np.array([len(batch[0]) for batch in self.rec_batches])
         self.factors = np.ceil(self.lengths/max_len).astype(int)
         self.first_rec = np.argmax(self.lengths)
         self.max_len = max_len
-        self.pad_start = pad_start
         self.shuffle = shuffle
-        self.batch_size = batch_size
 
     def __len__(self):
         return np.sum(self.factors)
@@ -252,22 +267,17 @@ class dloader:
 
         for i in rec_order:
             rec_id = self.ids[i]
-            _, labels, paths, _ = self.rec_batches[i]
+            labels, paths = self.rec_batches[i]
             xvecs = np.array([read_xvec(file) for file in paths])
             pmatrix, plabels = pairwise_cat_matrix(xvecs, labels)
             if len(labels) <= self.max_len:
-                if self.pad_start:
-                    yield pmatrix, np.vstack([np.ones(len(labels))*2, plabels]).astype(int), rec_id
-                else:
-                    yield pmatrix, plabels, rec_id
+                yield pmatrix, plabels, rec_id
             else:
                 factor = np.ceil(len(labels)/self.max_len).astype(int)
                 batched_feats, batched_labels = batch_matrix(pmatrix, plabels, factor=factor)
                 for feats, labels in zip(batched_feats, batched_labels):
-                    if self.pad_start:
-                        yield feats, np.vstack([np.ones(len(labels))*2, labels]).astype(int), rec_id
-                    else:
-                        yield feats, labels, rec_id
+                    yield feats, labels, rec_id
+
 
     def get_batches_seq(self):
         rec_order = np.arange(len(self.rec_batches))
@@ -277,42 +287,9 @@ class dloader:
             rec_order[0], rec_order[first_rec] = rec_order[first_rec], rec_order[0]
         for i in rec_order:
             rec_id = self.ids[i]
-            _, labels, paths, _ = self.rec_batches[i]
+            labels, paths = self.rec_batches[i]
             xvecs = np.array([read_xvec(file) for file in paths])
             pwise_labels = sim_matrix_target(labels)
             yield xvecs, pwise_labels, rec_id
-
-    
-    def prep_batches(self, xv, ls, ids):
-        lens = np.array([v.shape[0] for v in xv])
-        maxlen = np.max(lens)
-        mask = np.vstack([np.concatenate([np.zeros(l), + np.ones(maxlen-l)]) for l in lens]).astype(int)
-        return pad_sequence(xv), self.pad_sim_labels(ls, lens), ids, mask, self.labelmask(mask)
-
-    @staticmethod
-    def labelmask(mask):
-        lmask = np.repeat(mask[:,:,np.newaxis], mask.shape[1], axis=-1)
-        lmask = lmask + np.transpose(lmask, axes=[0, 2, 1])
-        return lmask == 0
-    
-    @staticmethod
-    def pad_sim_labels(ls, lens):
-        maxlen = np.max(lens)
-        padlen = maxlen - lens
-        padded = [F.pad(ls[i], (0, padlen[i], 0, padlen[i])) for i in range(len(lens))]
-        return torch.stack(padded)
-
-    def get_batches_t(self):
-        batch_v = []
-        batch_l = []
-        batch_ids = []
-        for xvecs, labs, rec_id in self.get_batches_seq():
-            if len(batch_v) == self.batch_size:
-                yield self.prep_batches(batch_v, batch_l, batch_ids)
-
-            batch_v.append(torch.FloatTensor(xvecs))
-            batch_l.append(torch.FloatTensor(labs))
-            batch_ids.append(rec_id)
-        return self.prep_batches(batch_v, batch_l, batch_ids)
             
         

@@ -178,15 +178,8 @@ if __name__ == "__main__":
     base_path = os.path.join(args.data_path, 'ch{}'.format(args.fold))
     assert os.path.isdir(base_path)
 
-    tr_segs = os.path.join(base_path, 'train/segments')
-    tr_xvecscp = os.path.join(base_path, 'train/xvector.scp')
-    te_segs = os.path.join(base_path, 'test/segments')
-    te_xvecscp = os.path.join(base_path, 'test/xvector.scp')
-
-    # rttm = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome/fullref.rttm'
-
-    dl = dloader(tr_segs, rttm, tr_xvecscp, max_len=args.max_len, pad_start=False)
-    dl_test = dloader(te_segs, rttm, te_xvecscp, max_len=args.max_len, pad_start=False, shuffle=False)
+    dl = dloader(os.path.join(base_path, 'train'), max_len=args.max_len)
+    dl_test = dloader(os.path.join(base_path, 'test'), max_len=args.max_len, shuffle=False)
 
     train()
 
