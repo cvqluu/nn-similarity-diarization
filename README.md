@@ -10,6 +10,10 @@ The basic concept behind this method is to learn the similarity scoring matrix n
 
 Kaldi, python, kaldi_io, scipy, sklearn, torch, CALLHOME dataset
 
+# TL;DR
+
+(WIP): You can run the whole recipe with `run.sh`
+
 # Data preparation
 
 The data-preparation for this will involve the following steps:
@@ -95,6 +99,20 @@ Alternatively, if you wish to train all folds sequentially with one script:
 
 ```sh
 python run_train_ch_folds.py configs/<your_config>.cfg
+```
+
+This will store `.pt` models into `base_model_dir` in a very similar structure as above:
+
+```
+folds_path
+├── ch0
+|   ├── epoch_1.pt
+|   ├── epoch_2.pt
+|   ├── ...
+|   └── final_100.pt
+├── ch1
+|   ├── epoch_1.pt
+|   ├── ...
 ```
 
 # Evaluation
