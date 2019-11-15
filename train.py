@@ -173,8 +173,7 @@ if __name__ == "__main__":
     os.makedirs(args.base_model_dir, exist_ok=True)
     args.model_dir = os.path.join(args.base_model_dir, 'ch{}'.format(args.fold))
     args.log_file = os.path.join(args.model_dir, 'exp_out.log')
-
-    rttm = args.rttm
+    
     base_path = os.path.join(args.data_path, 'ch{}'.format(args.fold))
     assert os.path.isdir(base_path)
 
