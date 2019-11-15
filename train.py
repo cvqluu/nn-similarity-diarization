@@ -1,5 +1,7 @@
 import argparse
+import configparser
 import glob
+import json
 import os
 import shutil
 import time
@@ -18,6 +20,47 @@ from torch.nn.utils.rnn import (PackedSequence, pack_padded_sequence,
 from tqdm import tqdm
 
 
+def schedule_lr(optimizer, factor=0.1):
+    for params in optimizer.param_groups:
+        params['lr'] *= factor
+    print(optimizer)
+
+def get_lr(optimizer):
+    for param_group in optimizer.param_groups:
+        return param_group['lr']
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Train nn embedding similarity scoring')
+    parser.add_argument('--cfg', type=str, default='./configs/example.cfg')
+    parser.add_argument('--epoch-resume', type=int, default=0)
+    parser.add_argument('--fold', type=int, default=0)
+    args = parser.parse_args()
+    assert os.path.isfile(args.cfg)
+    args._start_time = time.ctime()
+    return args
+
+def parse_config(args):
+    config = configparser.ConfigParser()
+    config.read(args.cfg)
+
+    args.data_path = config['Datasets']['data_path']
+
+    args.model_type = config['Model'].get('model_type', fallback='lstm')
+    assert args.model_type in ['lstm', 'transformer']
+
+    args.lr = config['Hyperparams'].getfloat('lr', fallback=0.2)
+    args.max_len = config['Hyperparams'].getint('max_len', fallback=400)
+    args.no_cuda = config['Hyperparams'].getboolean('no_cuda', fallback=False)
+    args.seed = config['Hyperparams'].getint('seed', fallback=123)
+    args.num_epochs = config['Hyperparams'].getint('num_epochs', fallback=100)
+    args.scheduler_steps = np.array(json.loads(config.get('Hyperparams', 'scheduler_steps'))).astype(int)
+    args.scheduler_lambda = config['Hyperparams'].getfloat('scheduler_lambda', fallback=0.1)
+
+    args.model_dir = config['Outputs']['base_model_dir']
+    args.checkpoint_interval = config['Outputs'].getint('checkpoint_interval')
+    return args
+
+
 def train():
     use_cuda = not args.no_cuda and torch.cuda.is_available()
 
@@ -30,45 +73,38 @@ def train():
     np.random.seed(seed=args.seed)
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    writer = SummaryWriter(comment='bilstm_sim')
-    model = LSTMSimilarity()
+    writer = SummaryWriter(comment=args.model_type)
+
+    if args.model_type == 'lstm':
+        model = LSTMSimilarity()
+    if args.model_type == 'transformer':
+        assert NotImplementedError
+
     model.to(device)
     model.train()
-
-    if args.resume_model_train:
-        # pretrained dict
-        if args.pretrain:
-            print('Resuming training from: {}'.format(args.resume_model_train))
-            pretrained_dict = torch.load(args.resume_model_train)
-            model_dict = model.state_dict()
-            pretrained_dict = {k: v for k, v in pretrained_dict.items() if (k in model_dict) and (model_dict[k].shape == pretrained_dict[k].shape)}
-            model_dict.update(pretrained_dict)
-            model.load_state_dict(model_dict)
-        else:
-            model.load_state_dict(torch.load(args.resume_model_train))
 
     if args.epoch_resume:
         model_epoch_filename = os.path.join(args.model_dir, 'epoch_{}.pt'.format(args.epoch_resume))
         print('Resuming training from: {}'.format(model_epoch_filename))
         model.load_state_dict(torch.load(model_epoch_filename))
 
-    
     optimizer = torch.optim.SGD([{'params': model.parameters()}], 
                                         lr=args.lr)
-    
-    print('Scheduler to step LR every {} epochs'.format(args.scheduler_period))
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.scheduler_period, gamma=0.1)
     criterion = nn.BCEWithLogitsLoss()
 
     iterations = 0
 
-    for epoch in range(args.epochs):
+    for epoch in range(args.num_epochs):
         total_loss = 0
+
+        if epoch + 1 in args.scheduler_steps:
+            schedule_lr(optimizer, factor=args.scheduler_lambda)
+            pass
+
         if args.epoch_resume:
             if epoch + 1 <= args.epoch_resume:
                 iterations += len(dl)
                 print('Skipped epoch {}'.format(epoch+1))
-                scheduler.step()
                 continue
 
         for batch_idx, (feats, labels, _) in enumerate(dl.get_batches()):
@@ -80,21 +116,22 @@ def train():
             out = model(feats)
             
             loss = criterion(out.flatten(), labels.flatten())
-            optimizer.zero_grad()
 
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             total_loss += loss.item()
             torch.cuda.empty_cache()
+
             if batch_idx % 5 == 0:
                 msg = "{}\tEpoch:{}[{}/{}], Loss:{:.4f} TLoss:{:.4f}, ({})".format(time.ctime(), epoch+1,
                     batch_idx+1, len(dl), loss.item(), total_loss / (batch_idx + 1), feats.shape)
                 print(msg)
+
             writer.add_scalar('loss', loss.item(), iterations)
             writer.add_scalar('Avg loss', total_loss / (batch_idx + 1), iterations)
 
-        scheduler.step()
         if (epoch + 1) % args.checkpoint_interval == 0:
             model.eval().cpu()
             cp_filename = "epoch_{}.pt".format(epoch+1)
@@ -104,7 +141,6 @@ def train():
             test_loss = test(model, device, criterion)
             print('TEST LOSS: {}'.format(test_loss))
             model.train()
-            # remove_old_models()
         
     # ---- Final model saving -----
     model.eval().cpu()
@@ -128,78 +164,29 @@ def test(model, device, criterion):
             total_batches += 1
     model.train()
     return total_loss/total_batches
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(description='Train a speaker change lstm using pytorch')
-    parser.add_argument('--epochs', type=int, default=100,
-                        help='number of epochs to train (default: 3)')
-    parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
-                        help='learning rate (default: 1e-4)')
-    parser.add_argument('--no-cuda', action='store_true', default=False,
-                        help='disables CUDA training')
-    parser.add_argument('--seed', type=int, default=1234, metavar='S',
-                        help='random seed (default: 1)')
-    parser.add_argument('--model-dir', type=str, default='./exp/lstm_sim_ch{}/',
-                        help='Saved model paths')
-    parser.add_argument('--model-type', type=str, default='lstm',
-                        help='Model type')
-    parser.add_argument('--scheduler-period', type=int, default=40,
-                        help='Scheduler period (default: 10)')
-    parser.add_argument('--checkpoint-interval', type=int, default=1,
-                        help='Number of epochs to run before saving the model to disk for checkpointing (default: 5)') 
-    parser.add_argument('--resume-model-train', type=str, default=None,
-                        help='Path to a checkpointed model to resume training from (default: None)')
-    parser.add_argument('--saved-model-history', type=int, default=5,
-                            help='Number of saved models to keep')
-    parser.add_argument('--pretrain', action='store_true', default=False,
-                            help='Will try and load weights that have been trained on another model')
-    parser.add_argument('--epoch-resume', type=int, default=None, help='Resume from a chosen epoch')
-    parser.add_argument('--max-len', type=int, default=400,
-                        help='max len')
-    parser.add_argument('--fold', type=int, default=0)
-    args = parser.parse_args()
-    args._start_time = time.ctime()
-    args.model_dir = args.model_dir.format(args.fold)
-    args.log_file = os.path.join(args.model_dir, 'exp_out.log')
-
-    pprint(vars(args))
-    os.makedirs(args.model_dir, exist_ok=True)
-    exp_info = os.path.join(args.model_dir, 'exp_info.log')
-    with open(exp_info, 'a+') as fp:
-        pprint(vars(args), fp)
-
-    return args
-
-def remove_old_models():
-    models = glob.glob(os.path.join(args.model_dir, 'epoch_*.pt'))
-    if len(models) > args.saved_model_history:
-        num = []
-        for model in models:
-            _, filename = os.path.split(model)
-            examples_seen = int(filename[6:-3])
-            num.append(examples_seen)
-
-        num, models = zip(*sorted(zip(num, models)))
-        models_to_delete = models[:-args.saved_model_history]
-        for model in models_to_delete:
-            os.remove(model)
-    else:
-        pass
     
 if __name__ == "__main__":
     args = parse_args()
-    rttm = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome/fullref.rttm'
-    xbase = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome'
-    fold = args.fold
-    base_path = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/ch{}/'.format(fold)
+    assert os.path.isfile(args.cfg)
+    args = parse_config(args)
+
+    os.makedirs(args.base_model_dir, exist_ok=True)
+    args.model_dir = os.path.join(args.base_model_dir, 'ch{}'.format(args.fold))
+    args.log_file = os.path.join(args.model_dir, 'exp_out.log')
+
+    rttm = args.rttm
+    base_path = os.path.join(args.data_path, 'ch{}'.format(args.fold))
+    assert os.path.isdir(base_path)
+
     tr_segs = os.path.join(base_path, 'train/segments')
     tr_xvecscp = os.path.join(base_path, 'train/xvector.scp')
-
     te_segs = os.path.join(base_path, 'test/segments')
     te_xvecscp = os.path.join(base_path, 'test/xvector.scp')
 
-    dl = dloader(tr_segs, rttm, tr_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase)
-    dl_test = dloader(te_segs, rttm, te_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase, shuffle=False)
+    # rttm = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome/fullref.rttm'
+
+    dl = dloader(tr_segs, rttm, tr_xvecscp, max_len=args.max_len, pad_start=False)
+    dl_test = dloader(te_segs, rttm, te_xvecscp, max_len=args.max_len, pad_start=False, shuffle=False)
+
     train()
 

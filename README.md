@@ -8,7 +8,7 @@ The basic concept behind this method is to learn the similarity scoring matrix n
 
 ## Requirements
 
-Kaldi, python, kaldi_io, torch, CALLHOME dataset
+Kaldi, python, kaldi_io, scipy, sklearn, torch, CALLHOME dataset
 
 # Data preparation
 
@@ -72,6 +72,7 @@ TODO
 TODO
 
 
+# References
 
 ```
 @inproceedings{Lin2019,
