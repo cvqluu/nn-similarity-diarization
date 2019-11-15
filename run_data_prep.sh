@@ -12,24 +12,24 @@ xvector_dir=/PATH/TO/XVECS #path to extracted xvectors
 
 if [ $stage -le 0 ]; then
     local/make_callhome.sh $callhome_path data
-    utils/combine_data.sh data/callhome data/callhome1 data/callhome2
-    cat data/callhome1/ref.rttm data/callhome2/ref.rttm > data/callhome/ref.rttm
+    utils/combine_data.sh data/callhome_full data/callhome1 data/callhome2
+    cp data/callhome/fullref.rttm data/callhome_full/ref.rttm
 fi
 
 if [ $stage -le 1 ]; then
     steps/make_mfcc.sh --mfcc-config conf/mfcc.conf --nj $nj \
       --cmd "$train_cmd" --write-utt2num-frames true \
-      data/callhome exp/make_mfcc mfcc
-    utils/fix_data_dir.sh data/callhome
+      data/callhome_full exp/make_mfcc mfcc
+    utils/fix_data_dir.sh data/callhome_full
 
     sid/compute_vad_decision.sh --nj $nj --cmd "$train_cmd" \
-      data/callhome exp/make_vad mfcc
-    utils/fix_data_dir.sh data/callhome
+      data/callhome_full exp/make_vad mfcc
+    utils/fix_data_dir.sh data/callhome_full
 
     local/nnet3/xvector/prepare_feats.sh --nj 40 --cmd "$train_cmd" \
-        data/callhome data/callhome_cmn exp/callhome_cmn
-    cp data/callhome/vad.scp data/callhome_cmn/
-    cp data/callhome/segments data/callhome_cmn/
+        data/callhome_full data/callhome_cmn exp/callhome_cmn
+    cp data/callhome_full/vad.scp data/callhome_cmn/
+    cp data/callhome_full/segments data/callhome_cmn/
     utils/fix_data_dir.sh data/callhome_cmn
 
 fi
