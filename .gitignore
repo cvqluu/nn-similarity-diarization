@@ -110,3 +110,5 @@ runs/*
 *.ipynb
 exp/*
 *.txt
+configs/*.cfg
+!configs/example.cfg
