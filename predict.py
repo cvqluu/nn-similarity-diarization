@@ -80,6 +80,10 @@ def cosine_sim_matrix(dl_test):
 
 
 if __name__ == "__main__":
+    '''
+    This makes predictions for all train and test recordings for each fold in base_model_dir
+    The predictions are stored as .npy files in base_model_dir/ch*/<tr|te>_preds
+    '''
     args = parse_args()
     assert os.path.isfile(args.cfg)
     args = parse_config(args)
