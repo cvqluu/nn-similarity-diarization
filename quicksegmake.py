@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 
 def sort_and_cat(rttms, column=1):
@@ -20,6 +21,7 @@ def sort_and_cat(rttms, column=1):
 
 
 if __name__ is "__main__":
+    
     files = ['/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/ch{}/test/segments'.format(fold) for fold in range(5)]
 
     all_seglines = sort_and_cat(files)

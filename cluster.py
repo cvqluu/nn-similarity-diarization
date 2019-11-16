@@ -7,15 +7,33 @@ from collections import OrderedDict
 from pprint import pprint
 
 import numpy as np
+import scipy.cluster.hierarchy as hcluster
+from scipy.sparse.csgraph import laplacian
+from sklearn.cluster import AgglomerativeClustering, KMeans, SpectralClustering
+from tqdm import tqdm
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from data_io import dloader, sim_matrix_target, collate_sim_matrices, load_n_col
+from data_io import (collate_sim_matrices, dloader, load_n_col,
+                     sim_matrix_target)
 from models import LSTMSimilarity
-from tqdm import tqdm
-from scipy.sparse.csgraph import laplacian
-from sklearn.cluster import KMeans, SpectralClustering, AgglomerativeClustering
-import scipy.cluster.hierarchy as hcluster
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Cluster')
+    parser.add_argument('--mat-dir', type=str, default='./exp/ch_{}_mat',
+                        help='Saved model paths')
+    parser.add_argument('--model-type', type=str, default='mask',
+                        help='Model type')
+    parser.add_argument('--cluster-type', type=str, default='sc', help='clustering type')
+    args = parser.parse_args()
+    assert args.model_type in ['lstm', 'mask', 'lstmres']
+    assert args.cluster_type in ['sc', 'ahc']
+
+    args.mat_dir = args.mat_dir.format(args.model_type)
+    pprint(vars(args))
+    return args
 
 
 def sym(matrix):
@@ -138,20 +156,7 @@ def sort_and_cat(rttms, column=1):
     return final_lines
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Cluster')
-    parser.add_argument('--mat-dir', type=str, default='./exp/ch_{}_mat',
-                        help='Saved model paths')
-    parser.add_argument('--model-type', type=str, default='mask',
-                        help='Model type')
-    parser.add_argument('--cluster-type', type=str, default='sc', help='clustering type')
-    args = parser.parse_args()
-    assert args.model_type in ['lstm', 'mask', 'lstmres']
-    assert args.cluster_type in ['sc', 'ahc']
 
-    args.mat_dir = args.mat_dir.format(args.model_type)
-    pprint(vars(args))
-    return args
 
 if __name__ == "__main__":
     args = parse_args()

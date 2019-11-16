@@ -9,6 +9,8 @@ from collections import OrderedDict
 from pprint import pprint
 
 import numpy as np
+from tqdm import tqdm
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -17,7 +19,6 @@ from models import LSTMSimilarity
 from tensorboardX import SummaryWriter
 from torch.nn.utils.rnn import (PackedSequence, pack_padded_sequence,
                                 pad_sequence)
-from tqdm import tqdm
 
 
 def schedule_lr(optimizer, factor=0.1):
@@ -182,4 +183,3 @@ if __name__ == "__main__":
     dl_test = dloader(os.path.join(base_path, 'test'), max_len=args.max_len, shuffle=False)
 
     train()
-

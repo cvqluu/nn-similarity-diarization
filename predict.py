@@ -1,4 +1,5 @@
 import argparse
+import configparser
 import glob
 import os
 import shutil
@@ -7,40 +8,46 @@ from collections import OrderedDict
 from pprint import pprint
 
 import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from data_io import dloader, sim_matrix_target, collate_sim_matrices, load_n_col
-from models import LSTMSimilarity, LSTMSimilarityCos, XTransformerMask
-from tqdm import tqdm
 from scipy.sparse.csgraph import laplacian
 from sklearn.cluster import KMeans, SpectralClustering
 from sklearn.metrics import pairwise_distances
+from tqdm import tqdm
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from data_io import (collate_sim_matrices, dloader, load_n_col,
+                     sim_matrix_target)
+from models import LSTMSimilarity, LSTMSimilarityCos, XTransformerMask
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Extract and diarize')
-    parser.add_argument('--model-path', type=str, default='./exp/{}_ch{}/final_100.pt',
-                        help='Saved model paths')
-    parser.add_argument('--mat-dir', type=str, default='./exp/ch_{}_mat',
-                        help='Saved model paths')
-    parser.add_argument('--model-type', type=str, default='mask',
-                        help='Model type')
-    parser.add_argument('--fold', type=int, default=0)
-    parser.add_argument('--max-len', type=int, default=400)
-    parser.add_argument('--no-cuda', action='store_true', default=False,
-                        help='disables CUDA training')
+    parser = argparse.ArgumentParser(description='Predict on datasets for final model')
+    parser.add_argument('--cfg', type=str, default='./configs/example.cfg')
     parser.add_argument('--cosine', action='store_true', default=False,
-                        help='simply takes the cosine sim matrix')
+                        help='simply takes the cosine sim matrix - used only for basebaseline')
     args = parser.parse_args()
-    assert args.model_type in ['lstm', 'mask', 'lstmres']
-
-    args.mat_dir = args.mat_dir.format(args.model_type)
-    args.model_path = args.model_path.format(args.model_type, args.fold)
     pprint(vars(args))
     return args
 
+def parse_config(args):
+    config = configparser.ConfigParser()
+    config.read(args.cfg)
+
+    args.data_path = config['Datasets']['data_path']
+
+    args.model_type = config['Model'].get('model_type', fallback='lstm')
+    assert args.model_type in ['lstm', 'transformer']
+
+    args.num_epochs = config['Hyperparams'].getint('num_epochs', fallback=100)
+    args.max_len = config['Hyperparams'].getint('max_len', fallback=400)
+    args.no_cuda = config['Hyperparams'].getboolean('no_cuda', fallback=False)
+
+    args.base_model_dir = config['Outputs']['base_model_dir']
+    return args
+
 def predict_matrices(model, dl_test):
+    # for a model and dataset, make predictions and collate them by recording
     preds = []
     rids = []
     with torch.no_grad():
@@ -74,50 +81,55 @@ def cosine_sim_matrix(dl_test):
 
 if __name__ == "__main__":
     args = parse_args()
-    rttm = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/callhome/fullref.rttm'
-    xbase = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/exp/xvector_nnet_1a/xvectors_callhome'
-    fold = args.fold
-    base_path = '/disk/scratch1/s1786813/kaldi/egs/callhome_diarization/v2/data/ch{}/'.format(fold)
-    
-    te_segs = os.path.join(base_path, 'test/segments')
-    te_xvecscp = os.path.join(base_path, 'test/xvector.scp')
-    dl_test = dloader(te_segs, rttm, te_xvecscp, max_len=args.max_len, pad_start=False, xvecbase_path=xbase, shuffle=False)
-    if not args.cosine:
-        use_cuda = not args.no_cuda and torch.cuda.is_available()
+    assert os.path.isfile(args.cfg)
+    args = parse_config(args)
 
-        print('-'*10)
-        print('USE_CUDA SET TO: {}'.format(use_cuda))
-        print('CUDA AVAILABLE?: {}'.format(torch.cuda.is_available()))
-        print('-'*10)
+    folds_models = glob.glob(os.path.join(args.base_model_dir, 'ch*'))
+    for fold in range(len(folds_models)):
+        model_dir = os.path.join(args.base_model_dir, 'ch{}'.format(fold))
+        model_path = os.path.join(model_dir, 'final_{}'.format(args.num_epochs))
+        base_path = os.path.join(args.data_path, 'ch{}'.format(args.fold))
 
-        device = torch.device("cuda" if use_cuda else "cpu")
+        dl_train = dloader(os.path.join(base_path, 'train'), max_len=args.max_len, shuffle=False)
+        dl_test = dloader(os.path.join(base_path, 'test'), max_len=args.max_len, shuffle=False)
 
-        if args.model_type == 'lstm':
-            model = LSTMSimilarity()
-            predfunc = predict_matrices
-        if args.model_type == 'mask':
-            model = XTransformerMask()
-            predfunc = predict_seq_matrices
-        if args.model_type == 'lstmres':
-            model = LSTMSimilarityCos()
-            predfunc = predict_matrices
+        if not args.cosine:
+            use_cuda = not args.no_cuda and torch.cuda.is_available()
+
+            print('-'*10)
+            print('USE_CUDA SET TO: {}'.format(use_cuda))
+            print('CUDA AVAILABLE?: {}'.format(torch.cuda.is_available()))
+            print('-'*10)
+
+            device = torch.device("cuda" if use_cuda else "cpu")
+
+            if args.model_type == 'lstm':
+                model = LSTMSimilarity()
+                predfunc = predict_matrices
+            if args.model_type == 'transformer':
+                assert NotImplementedError
+
+            model.load_state_dict(torch.load(model_path))
+            model.to(device)
+            model.eval()
+
+            te_cm, te_cids = predfunc(model, dl_test)
+            tr_cm, tr_cids = predfunc(model, dl_train)
+
+        else:
+            te_cm, te_cids = cosine_sim_matrix(dl_test)
+            tr_cm, tr_cids = cosine_sim_matrix(dl_train)
+
         
+        tr_mat_dir = os.path.join(model_dir, 'tr_preds')
+        os.makedirs(tr_mat_dir, exist_ok=True)
+        te_mat_dir = os.path.join(model_dir, 'te_preds')
+        os.makedirs(te_mat_dir, exist_ok=True)
 
-        model.load_state_dict(torch.load(args.model_path))
-        model.to(device)
-        model.eval()
-        cm, cids = predfunc(model, dl_test)
-        mat_dir = args.mat_dir
-        os.makedirs(mat_dir, exist_ok=True)
-    else:
-        cm, cids = cosine_sim_matrix(dl_test)
-        mat_dir = './exp/ch_css_mat'
-        os.makedirs(mat_dir, exist_ok=True)
+        for mat, rid in tqdm(zip(tr_cm, tr_cids)):
+            filename = os.path.join(tr_mat_dir, rid+'.npy')
+            np.save(filename, mat)
         
-    for mat, rid in tqdm(zip(cm, cids)):
-        filename = os.path.join(mat_dir, rid+'.npy')
-        np.save(filename, mat)
-    
-
-
-
+        for mat, rid in tqdm(zip(te_cm, te_cids)):
+            filename = os.path.join(te_mat_dir, rid+'.npy')
+            np.save(filename, mat)

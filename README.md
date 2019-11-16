@@ -118,16 +118,25 @@ folds_path
 
 # Evaluation
 
-TODO
+As mentioned above, the network outputs chunks of a similarity matrix for pairs of embeddings in a recording. To obtain a diarization prediction, spectral clustering is used (in `cluster.py`) with the similarity matrix enhancement described in [1]. Agglomerative clustering is also included in this repo.
+
+For each fold of the CALLHOME dataset, the best performing cluster threshold on the train set is used for the prediction on the test set.
+
+These predictions are then combined to produce the overall system hypothesis for CALLHOME.
 
 # Results
 
 TODO
 
 
+# Other issues/todos
+
+Support for changing the number of folds
+
 # References
 
 ```
+# [1]
 @inproceedings{Lin2019,
   author={Qingjian Lin and Ruiqing Yin and Ming Li and Hervé Bredin and Claude Barras},
   title={{LSTM Based Similarity Measurement with Spectral Clustering for Speaker Diarization}},
