@@ -13,7 +13,6 @@ xvector_dir=/PATH/TO/XVECS #path to extracted xvectors
 if [ $stage -le 0 ]; then
     local/make_callhome.sh $callhome_path data
     utils/combine_data.sh data/callhome_full data/callhome1 data/callhome2
-    cp data/callhome/fullref.rttm data/callhome_full/ref.rttm
 fi
 
 if [ $stage -le 1 ]; then

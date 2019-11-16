@@ -44,7 +44,7 @@ source path.sh
 Changing directory back to where this repo is, run the following command to make the train/test folds, replacing the variables as is necessary. Here `$xvector_dir` is as above and `$folds_path` is the location in which the splits will reside.
 
 ```sh
-python make_kfold_callhome.py $xvector_dir $KALDI_PATH/egs/callhome_diarization/v2/data/callhome/ref.rttm $folds_path
+python make_kfold_callhome.py $xvector_dir $KALDI_PATH/egs/callhome_diarization/v2/data/callhome/fullref.rttm $folds_path
 ```
 
 which makes a folder structure like so

@@ -57,7 +57,7 @@ def parse_config(args):
     args.scheduler_lambda = config['Hyperparams'].getfloat('scheduler_lambda', fallback=0.1)
 
     args.base_model_dir = config['Outputs']['base_model_dir']
-    args.checkpoint_interval = config['Outputs'].getint('checkpoint_interval')
+    args.checkpoint_interval = config['Outputs'].getint('checkpoint_interval', fallback=1)
     return args
 
 
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     os.makedirs(args.base_model_dir, exist_ok=True)
     args.model_dir = os.path.join(args.base_model_dir, 'ch{}'.format(args.fold))
     args.log_file = os.path.join(args.model_dir, 'exp_out.log')
-    
+
     base_path = os.path.join(args.data_path, 'ch{}'.format(args.fold))
     assert os.path.isdir(base_path)
 
