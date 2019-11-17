@@ -130,10 +130,10 @@ if __name__ == "__main__":
         te_mat_dir = os.path.join(model_dir, 'te_preds')
         os.makedirs(te_mat_dir, exist_ok=True)
 
-        for mat, rid in tqdm(zip(tr_cm, tr_cids)):
+        for mat, rid in zip(tr_cm, tr_cids):
             filename = os.path.join(tr_mat_dir, rid+'.npy')
             np.save(filename, mat)
         
-        for mat, rid in tqdm(zip(te_cm, te_cids)):
+        for mat, rid in zip(te_cm, te_cids):
             filename = os.path.join(te_mat_dir, rid+'.npy')
             np.save(filename, mat)
