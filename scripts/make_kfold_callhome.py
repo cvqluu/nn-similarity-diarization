@@ -1,7 +1,7 @@
 import os
 import sys
 
-from data_io import segment_labels, make_k_fold_dataset
+from ..data_io import segment_labels, make_k_fold_dataset
 
 if __name__ == "__main__":
     xvector_dir = sys.argv[1]

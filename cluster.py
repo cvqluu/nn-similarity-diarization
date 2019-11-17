@@ -203,11 +203,19 @@ if __name__ == "__main__":
 
     folds_models = glob.glob(os.path.join(args.base_model_dir, 'ch*'))
     for fold in range(len(folds_models)):
-        
+        # read train .npy files
+        tr_mat_dir = os.path.join(args.base_model_dir, 'ch{}/tr_preds'.format(fold))
+        tr_npys = glob.glob(os.path.join(tr_mat_dir, '*.npy'))
+        tr_recs = [os.path.splittext(i)[0] for i in tr_npys]
+        tr_mats = [np.load(i) for i in tr_npys]
+        # perform clustering, across chosen cluster thresholds
+        # evaluate all thresholds
+        # find best one
+        # cluster test on best threshold
         pass
 
     # if args.cluster_type == 'sc':
-    #     cparam_range = np.linspace(0.95, 1.05, 10)
+        #     cparam_range = np.linspace(0.95, 1.05, 10)
     # if args.cluster_type == 'ahc':
     #     cparam_range = np.linspace(-2, 2, 9)
 
