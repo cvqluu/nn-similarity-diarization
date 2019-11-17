@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import time
+import re
 from collections import OrderedDict
 from pprint import pprint
 
@@ -133,12 +134,11 @@ def make_rttm(segments, cids, cm, rttm_file, ctype='sc', cparam=1e-2):
     segment_cols = load_n_col(segments, numpy=True)
 
     seg_recording_ids = sorted(set(segment_cols[1]))
-    print(len(seg_recording_ids), len(cids))
     assert len(seg_recording_ids) == len(cids)
 
     events0 = np.array(segment_cols[2:4]).astype(float).transpose()
 
-    for rec_id, smatrix in tqdm(zip(cids, cm)):
+    for rec_id, smatrix in zip(cids, cm):
         seg_indexes = segment_cols[1] == rec_id
         ev0 = events0[seg_indexes]
         assert len(smatrix) == len(ev0)
@@ -149,8 +149,6 @@ def make_rttm(segments, cids, cm, rttm_file, ctype='sc', cparam=1e-2):
         entries = assign_segments(pred_labels, ev0)
         lines = rttm_lines_from_entries(entries, rec_id)
         lines_to_file(lines, rttm_file, wmode='a')
-
-
 
 
 def sort_and_cat(rttms, column=1):
@@ -171,9 +169,18 @@ def sort_and_cat(rttms, column=1):
         final_lines += list(all_rows[rindexes])
     return final_lines
 
-def score_der(hyp=None, ref=None):
-    raise NotImplementedError
-    return 1.
+def score_der(hyp=None, ref=None, outfile=None, collar=0.25):
+    '''
+    Takes in hypothesis rttm and reference rttm and returns the diarization error rate
+    Calls md-eval.pl -> writes output to file -> greps for DER value
+    '''
+    cmd = './md-eval.pl -1 -c {} -s {} -r {} > {}'.format(collar, hyp, ref, outfile)
+    subprocess.call(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    with open(outfile, 'r') as file:
+        data = file.read().replace('\n', '')
+    der_str = re.search('DIARIZATION\ ERROR\ =\ [0-9]+([.][0-9]+)?', data).group()
+    der = float(der_str.split()[-1])
+    return der
 
 
 if __name__ == "__main__":
@@ -201,8 +208,10 @@ if __name__ == "__main__":
             rttm_outfile = os.path.join(tuning_dir, '{}.rttm'.format(i))
             make_rttm(tr_segs, tr_recs, tr_mats, rttm_outfile, ctype=args.cluster_type, cparam=cparam)
 
-            #TODO: calc der
-            der = score_der(hyp=rttm_outfile, ref=tr_rttm)
+            #Calc der
+            eval_log = os.path.join(tuning_dir, '{}.derlog'.format(i))
+            der = score_der(hyp=rttm_outfile, ref=tr_rttm, outfile=eval_log)
+            print('Fold {}, cparam {} \t DER: {}'.format(fold, cparam, der))
             if der < best_der[0]:
                 best_der = (der, i)
 
