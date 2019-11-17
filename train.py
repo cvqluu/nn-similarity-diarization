@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from data_io import dloader
-from models import LSTMSimilarity
+from models import LSTMSimilarity, LSTMSimilarityCosWS, LSTMSimilarityCosRes
 from tensorboardX import SummaryWriter
 from torch.nn.utils.rnn import (PackedSequence, pack_padded_sequence,
                                 pad_sequence)
@@ -47,7 +47,7 @@ def parse_config(args):
     args.data_path = config['Datasets']['data_path']
 
     args.model_type = config['Model'].get('model_type', fallback='lstm')
-    assert args.model_type in ['lstm', 'transformer']
+    assert args.model_type in ['lstm', 'lstm_cos_ws', 'lstm_cos_res', 'transformer']
 
     args.lr = config['Hyperparams'].getfloat('lr', fallback=0.2)
     args.max_len = config['Hyperparams'].getint('max_len', fallback=400)
@@ -78,6 +78,10 @@ def train():
 
     if args.model_type == 'lstm':
         model = LSTMSimilarity()
+    if args.model_type == 'lstm_cos_res':
+        model = LSTMSimilarityCosRes()
+    if args.model_type == 'lstm_cos_ws':
+        model = LSTMSimilarityCosWS()
     if args.model_type == 'transformer':
         assert NotImplementedError
 

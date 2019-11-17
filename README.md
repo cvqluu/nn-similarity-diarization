@@ -158,7 +158,7 @@ cluster_type = sc
 
 # The following values are fed into np.linspace to produce a range of parameters to try clustering the train portion over
 # Note: cparam_start must be positive if spectral clustering is used.
-cparam_start = 0.5
+cparam_start = 0.95
 cparam_end = 1.0
 cparam_steps = 20
 ```
@@ -173,6 +173,17 @@ Finally:
 
 ```sh
 python cluster.py --cfg configs/<your_config>.cfg
+```
+
+which will have an output similar to this:
+
+```
+Fold 0, cparam 0.9       Train DER: 15.5
+5%|###########8                                  | 1/20 [00:55<17:33, 55.44s/it]
+Fold 0, cparam 0.9052631578947369        Train DER: 15.07
+10%|#######################6                    | 2/20 [01:43<15:59, 53.29s/it]
+Fold 0, cparam 0.9105263157894737        Train DER: 14.44
+...
 ```
 
 # Results

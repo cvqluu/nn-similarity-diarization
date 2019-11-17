@@ -46,7 +46,7 @@ def parse_config(args):
     args.cluster_type = config['Clustering'].get('cluster_type', fallback='sc')
     assert args.cluster_type in ['sc', 'ahc']
 
-    args.cparam_start = config['Clustering'].getfloat('cparam_start', fallback=0.0)
+    args.cparam_start = config['Clustering'].getfloat('cparam_start', fallback=0.95)
     if args.cluster_type == 'sc':
         assert (args.cparam_start > 0.0), 'Beta value for SC must be >0'
     args.cparam_end = config['Clustering'].getfloat('cparam_end', fallback=1.0)
@@ -222,8 +222,9 @@ if __name__ == "__main__":
                 best_der = (der, i)
 
         best_thresh = cparam_range[best_der[1]]
+        print('\n')
         print('Best cparam was: {}, clustering test portion using this value...'.format(best_thresh))
-
+        print('\n')
         te_mat_dir = os.path.join(args.base_model_dir, 'ch{}/te_preds'.format(fold))
         te_npys = glob.glob(os.path.join(te_mat_dir, '*.npy'))
         te_recs = [os.path.basename(i)[:-4] for i in te_npys]
@@ -241,6 +242,6 @@ if __name__ == "__main__":
     subprocess.call(cat_cmd, shell=True)
 
     fullref_rttm = os.path.join(args.data_path, 'fullref.rttm')
-    test_der = score_der(hyp=ftest_rttm, ref=fullref_rttm)
+    test_der = score_der(hyp=ftest_rttm, ref=fullref_rttm, outfile=os.path.join(args.data_path, 'fullref_log'))
     print('Full Test Der: {}'.format(test_der))
 

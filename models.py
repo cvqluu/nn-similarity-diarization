@@ -23,10 +23,42 @@ class LSTMSimilarity(nn.Module):
         x = self.fc2(x).squeeze(2)
         return x
 
-class LSTMSimilarityCos(nn.Module):
+class LSTMSimilarityCosRes(nn.Module):
 
     def __init__(self, input_size=256, hidden_size=256, num_layers=2):
-        super(LSTMSimilarityCos, self).__init__()
+        '''
+        Like the LSTM Model but the LSTM only has to learn a modification to the cosine sim:
+        y = LSTM(x) + pwise_cos_sim(x)
+        '''
+        super(LSTMSimilarityCosRes, self).__init__()
+        self.lstm = nn.LSTM(input_size,
+                            hidden_size,
+                            num_layers=num_layers,
+                            bidirectional=True,
+                            batch_first=True)
+        self.fc1 = nn.Linear(hidden_size*2, 64)
+        self.nl = nn.ReLU(inplace=True)
+        self.fc2 = nn.Linear(64, 1)
+
+        self.pdistlayer = pCosineSiamese()
+
+    def forward(self, x):
+        cs = self.pdistlayer(x)
+        x, _ = self.lstm(x)
+        x = self.fc1(x)
+        x = self.nl(x)
+        x = self.fc2(x).squeeze(2)
+        x += cs
+        return x
+
+class LSTMSimilarityCosWS(nn.Module):
+
+    def __init__(self, input_size=256, hidden_size=256, num_layers=2):
+        '''
+        Like the LSTM Model but the LSTM only has to learn a weighted sum of it and the cosine sim:
+        y = A*LSTM(x) + B*pwise_cos_sim(x)
+        '''
+        super(LSTMSimilarityCosWS, self).__init__()
         self.lstm = nn.LSTM(input_size,
                             hidden_size,
                             num_layers=num_layers,
