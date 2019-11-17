@@ -87,6 +87,14 @@ if __name__ == "__main__":
     args = parse_args()
     assert os.path.isfile(args.cfg)
     args = parse_config(args)
+    use_cuda = not args.no_cuda and torch.cuda.is_available()
+
+    print('='*30)
+    print('USE_CUDA SET TO: {}'.format(use_cuda))
+    print('CUDA AVAILABLE?: {}'.format(torch.cuda.is_available()))
+    print('='*30)
+
+    device = torch.device("cuda" if use_cuda else "cpu")
 
     folds_models = glob.glob(os.path.join(args.base_model_dir, 'ch*'))
     for fold in range(len(folds_models)):
@@ -101,15 +109,6 @@ if __name__ == "__main__":
             te_cm, te_cids = cosine_sim_matrix(dl_test)
             tr_cm, tr_cids = cosine_sim_matrix(dl_train)
         else:
-            use_cuda = not args.no_cuda and torch.cuda.is_available()
-
-            print('-'*10)
-            print('USE_CUDA SET TO: {}'.format(use_cuda))
-            print('CUDA AVAILABLE?: {}'.format(torch.cuda.is_available()))
-            print('-'*10)
-
-            device = torch.device("cuda" if use_cuda else "cpu")
-
             if args.model_type == 'lstm':
                 model = LSTMSimilarity()
                 predfunc = predict_matrices

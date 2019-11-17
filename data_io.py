@@ -256,7 +256,7 @@ class dloader:
         self.shuffle = shuffle
 
     def __len__(self):
-        return np.sum(self.factors)
+        return np.sum(self.factors**2)
 
     def get_batches(self):
         rec_order = np.arange(len(self.rec_batches))
