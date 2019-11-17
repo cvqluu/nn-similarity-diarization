@@ -48,6 +48,8 @@ def parse_config(args):
     assert args.cluster_type in ['sc', 'ahc']
 
     args.cparam_start = config['Clustering'].getfloat('cparam_start', fallback=0.0)
+    if args.cluster_type == 'sc':
+        assert (args.cparam_start > 0.0), 'Beta value for SC must be >0'
     args.cparam_end = config['Clustering'].getfloat('cparam_end', fallback=1.0)
     args.cparam_steps = config['Clustering'].getint('cparam_steps', fallback=20)
     return args
