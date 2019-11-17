@@ -1,4 +1,5 @@
 import argparse
+import configparser
 import glob
 import os
 import shutil
@@ -20,21 +21,46 @@ from data_io import (collate_sim_matrices, dloader, load_n_col,
 from models import LSTMSimilarity
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Cluster')
-    parser.add_argument('--mat-dir', type=str, default='./exp/ch_{}_mat',
-                        help='Saved model paths')
-    parser.add_argument('--model-type', type=str, default='mask',
-                        help='Model type')
-    parser.add_argument('--cluster-type', type=str, default='sc', help='clustering type')
-    args = parser.parse_args()
-    assert args.model_type in ['lstm', 'mask', 'lstmres']
-    assert args.cluster_type in ['sc', 'ahc']
+# def parse_args():
+#     parser = argparse.ArgumentParser(description='Cluster')
+#     parser.add_argument('--mat-dir', type=str, default='./exp/ch_{}_mat',
+#                         help='Saved model paths')
+#     parser.add_argument('--model-type', type=str, default='mask',
+#                         help='Model type')
+#     parser.add_argument('--cluster-type', type=str, default='sc', help='clustering type')
+#     args = parser.parse_args()
+#     assert args.model_type in ['lstm', 'mask', 'lstmres']
+#     assert args.cluster_type in ['sc', 'ahc']
 
-    args.mat_dir = args.mat_dir.format(args.model_type)
+#     args.mat_dir = args.mat_dir.format(args.model_type)
+#     pprint(vars(args))
+#     return args
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Find best cluster threshold on train folds and use on test')
+    parser.add_argument('--cfg', type=str, default='./configs/example.cfg')
+    args = parser.parse_args()
     pprint(vars(args))
     return args
 
+def parse_config(args):
+    config = configparser.ConfigParser()
+    config.read(args.cfg)
+
+    args.data_path = config['Datasets']['data_path']
+
+    args.model_type = config['Model'].get('model_type', fallback='lstm')
+    assert args.model_type in ['lstm', 'transformer']
+
+    args.num_epochs = config['Hyperparams'].getint('num_epochs', fallback=100)
+    args.max_len = config['Hyperparams'].getint('max_len', fallback=400)
+    args.no_cuda = config['Hyperparams'].getboolean('no_cuda', fallback=False)
+
+    args.base_model_dir = config['Outputs']['base_model_dir']
+
+    args.cluster_type = config['Clustering'].get('cluster_type', fallback='spectral')
+    assert args.cluster_type in ['spectral', 'agglomerative']
+    return args
 
 def sym(matrix):
     '''
@@ -159,27 +185,36 @@ def sort_and_cat(rttms, column=1):
 
 
 if __name__ == "__main__":
+    # args = parse_args()
+    # te_segs = 'exp/ch_segments'
+    # mat_dir = args.mat_dir
+    # cm_npys = os.path.join(mat_dir, '*.npy')
+    # cids = []
+    # cm = []
+    # for mpath in glob.glob(cm_npys):
+        # base = os.path.basename(mpath)
+        # rid = os.path.splitext(base)[0]
+        # cm.append(np.load(mpath))
+        # cids.append(rid)
+
     args = parse_args()
-    te_segs = 'exp/ch_segments'
-    mat_dir = args.mat_dir
-    cm_npys = os.path.join(mat_dir, '*.npy')
-    cids = []
-    cm = []
-    for mpath in glob.glob(cm_npys):
-        base = os.path.basename(mpath)
-        rid = os.path.splitext(base)[0]
-        cm.append(np.load(mpath))
-        cids.append(rid)
+    assert os.path.isfile(args.cfg)
+    args = parse_config(args)
 
-    if args.cluster_type == 'sc':
-        cparam_range = np.linspace(0.95, 1.05, 10)
-    if args.cluster_type == 'ahc':
-        cparam_range = np.linspace(-2, 2, 9)
+    folds_models = glob.glob(os.path.join(args.base_model_dir, 'ch*'))
+    for fold in range(len(folds_models)):
+        
+        pass
 
-    os.makedirs('./exp/{}'.format(args.model_type), exist_ok=True)
+    # if args.cluster_type == 'sc':
+    #     cparam_range = np.linspace(0.95, 1.05, 10)
+    # if args.cluster_type == 'ahc':
+    #     cparam_range = np.linspace(-2, 2, 9)
 
-    for cparam in tqdm(cparam_range):
-        rttmdir = './exp/{}/{}_{}'.format(args.model_type, args.cluster_type, cparam)
-        os.makedirs(rttmdir, exist_ok=True)
-        rttm_path = os.path.join(rttmdir, 'hyp.rttm')
-        make_rttm(te_segs, cids, cm, rttm_path, ctype=args.cluster_type, cparam=cparam)
+    # os.makedirs('./exp/{}'.format(args.model_type), exist_ok=True)
+
+    # for cparam in tqdm(cparam_range):
+    #     rttmdir = './exp/{}/{}_{}'.format(args.model_type, args.cluster_type, cparam)
+    #     os.makedirs(rttmdir, exist_ok=True)
+    #     rttm_path = os.path.join(rttmdir, 'hyp.rttm')
+    #     make_rttm(te_segs, cids, cm, rttm_path, ctype=args.cluster_type, cparam=cparam)
