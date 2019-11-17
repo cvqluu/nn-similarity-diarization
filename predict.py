@@ -91,7 +91,7 @@ if __name__ == "__main__":
     folds_models = glob.glob(os.path.join(args.base_model_dir, 'ch*'))
     for fold in range(len(folds_models)):
         model_dir = os.path.join(args.base_model_dir, 'ch{}'.format(fold))
-        model_path = os.path.join(model_dir, 'final_{}'.format(args.num_epochs))
+        model_path = os.path.join(model_dir, 'final_{}.pt'.format(args.num_epochs))
         base_path = os.path.join(args.data_path, 'ch{}'.format(fold))
 
         dl_train = dloader(os.path.join(base_path, 'train'), max_len=args.max_len, shuffle=False)
@@ -120,7 +120,9 @@ if __name__ == "__main__":
             model.to(device)
             model.eval()
 
+            print('Predicting test recordings for fold {}...'.format(fold))
             te_cm, te_cids = predfunc(model, dl_test)
+            print('Predicting train recordings for fold {} ...'.format(fold))
             tr_cm, tr_cids = predfunc(model, dl_train)
 
         
