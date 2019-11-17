@@ -1,10 +1,12 @@
 # Neural network based similarity scoring for diarization
 
-PyTorch implementation of neural network based similarity scoring for diarization: based on the paper **"LSTM based Similarity Measurement with Spectral Clustering for Speaker Diarization"** at INTERSPEECH 2019 https://arxiv.org/abs/1907.10393, https://www.isca-speech.org/archive/Interspeech_2019/pdfs/1388.pdf 
+PyTorch implementation of neural network based similarity scoring for diarization: based on the paper **"LSTM based Similarity Measurement with Spectral Clustering for Speaker Diarization"** [1] at INTERSPEECH 2019 https://arxiv.org/abs/1907.10393, https://www.isca-speech.org/archive/Interspeech_2019/pdfs/1388.pdf 
 
 I am not affiliated with the paper authors.
 
 The basic concept behind this method is to learn the similarity scoring matrix needed for diarizing a recording. Inputs of concatenated speaker embeddings (such as x-vectors) are fed through an LSTM or other architecture to predict the similarity of the concatenated embeddings.
+
+![model_fig](figures/bilstm_sim_model.png?raw=true "bilstm_model") Figure taken from [1]
 
 ## Requirements
 
