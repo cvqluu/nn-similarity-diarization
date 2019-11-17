@@ -3,6 +3,7 @@ import configparser
 import glob
 import os
 import shutil
+import subprocess
 import time
 from collections import OrderedDict
 from pprint import pprint
@@ -19,22 +20,6 @@ import torch.nn.functional as F
 from data_io import (collate_sim_matrices, dloader, load_n_col,
                      sim_matrix_target)
 from models import LSTMSimilarity
-
-
-# def parse_args():
-#     parser = argparse.ArgumentParser(description='Cluster')
-#     parser.add_argument('--mat-dir', type=str, default='./exp/ch_{}_mat',
-#                         help='Saved model paths')
-#     parser.add_argument('--model-type', type=str, default='mask',
-#                         help='Model type')
-#     parser.add_argument('--cluster-type', type=str, default='sc', help='clustering type')
-#     args = parser.parse_args()
-#     assert args.model_type in ['lstm', 'mask', 'lstmres']
-#     assert args.cluster_type in ['sc', 'ahc']
-
-#     args.mat_dir = args.mat_dir.format(args.model_type)
-#     pprint(vars(args))
-#     return args
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Find best cluster threshold on train folds and use on test')
@@ -58,8 +43,12 @@ def parse_config(args):
 
     args.base_model_dir = config['Outputs']['base_model_dir']
 
-    args.cluster_type = config['Clustering'].get('cluster_type', fallback='spectral')
-    assert args.cluster_type in ['spectral', 'agglomerative']
+    args.cluster_type = config['Clustering'].get('cluster_type', fallback='sc')
+    assert args.cluster_type in ['sc', 'ahc']
+
+    args.cparam_start = config['Clustering'].getfloat('cparam_start', fallback=0.0)
+    args.cparam_end = config['Clustering'].getfloat('cparam_end', fallback=1.0)
+    args.cparam_steps = config['Clustering'].getint('cparam_steps', fallback=20)
     return args
 
 def sym(matrix):
@@ -95,6 +84,7 @@ def spectral_clustering(S, beta=1e-2):
     return km.fit_predict(P)
 
 def agg_clustering(S, thresh=0.):
+    S = sim_enhancement(S)
     ahc = AgglomerativeClustering(n_clusters=None, affinity='precomputed', linkage='average', compute_full_tree=True, distance_threshold=thresh)
     return ahc.fit_predict(S)
 
@@ -181,22 +171,12 @@ def sort_and_cat(rttms, column=1):
         final_lines += list(all_rows[rindexes])
     return final_lines
 
-
+def score_der(hyp=None, ref=None):
+    raise NotImplementedError
+    return 1.
 
 
 if __name__ == "__main__":
-    # args = parse_args()
-    # te_segs = 'exp/ch_segments'
-    # mat_dir = args.mat_dir
-    # cm_npys = os.path.join(mat_dir, '*.npy')
-    # cids = []
-    # cm = []
-    # for mpath in glob.glob(cm_npys):
-        # base = os.path.basename(mpath)
-        # rid = os.path.splitext(base)[0]
-        # cm.append(np.load(mpath))
-        # cids.append(rid)
-
     args = parse_args()
     assert os.path.isfile(args.cfg)
     args = parse_config(args)
@@ -206,23 +186,44 @@ if __name__ == "__main__":
         # read train .npy files
         tr_mat_dir = os.path.join(args.base_model_dir, 'ch{}/tr_preds'.format(fold))
         tr_npys = glob.glob(os.path.join(tr_mat_dir, '*.npy'))
-        tr_recs = [os.path.splittext(i)[0] for i in tr_npys]
+        tr_recs = [os.path.basename(i)[:-4] for i in tr_npys]
         tr_mats = [np.load(i) for i in tr_npys]
+        tr_segs = os.path.join(args.data_path, 'ch{}/train/segments'.format(fold))
+        tr_rttm = os.path.join(args.data_path, 'ch{}/train/ref.rttm'.format(fold))
+
         # perform clustering, across chosen cluster thresholds
-        # evaluate all thresholds
-        # find best one
-        # cluster test on best threshold
-        pass
+        tuning_dir = os.path.join(args.base_model_dir, 'ch{}/tuning'.format(fold))
+        os.makedirs(tuning_dir, exist_ok=True)
 
-    # if args.cluster_type == 'sc':
-        #     cparam_range = np.linspace(0.95, 1.05, 10)
-    # if args.cluster_type == 'ahc':
-    #     cparam_range = np.linspace(-2, 2, 9)
+        cparam_range = np.linspace(args.cparam_start, args.cparam_end, args.cparam_steps)
+        best_der = (100, -1) #store best der
+        for i, cparam in enumerate(tqdm(cparam_range)):
+            rttm_outfile = os.path.join(tuning_dir, '{}.rttm'.format(i))
+            make_rttm(tr_segs, tr_recs, tr_mats, rttm_outfile, ctype=args.cluster_type, cparam=cparam)
 
-    # os.makedirs('./exp/{}'.format(args.model_type), exist_ok=True)
+            #TODO: calc der
+            der = score_der(hyp=rttm_outfile, ref=tr_rttm)
+            if der < best_der[0]:
+                best_der = (der, i)
 
-    # for cparam in tqdm(cparam_range):
-    #     rttmdir = './exp/{}/{}_{}'.format(args.model_type, args.cluster_type, cparam)
-    #     os.makedirs(rttmdir, exist_ok=True)
-    #     rttm_path = os.path.join(rttmdir, 'hyp.rttm')
-    #     make_rttm(te_segs, cids, cm, rttm_path, ctype=args.cluster_type, cparam=cparam)
+        best_thresh = cparam_range[best_der[1]]
+
+        te_mat_dir = os.path.join(args.base_model_dir, 'ch{}/te_preds'.format(fold))
+        te_npys = glob.glob(os.path.join(te_mat_dir, '*.npy'))
+        te_recs = [os.path.basename(i)[:-4] for i in te_npys]
+        te_mats = [np.load(i) for i in te_npys]
+        te_segs = os.path.join(args.data_path, 'ch{}/test/segments'.format(fold))
+        
+        test_rttm_outfile = os.path.join(tuning_dir, 'test.rttm')
+        make_rttm(te_segs, te_recs, te_mats, test_rttm_outfile, ctype=args.cluster_type, cparam=best_thresh)
+
+    # concatenate test rttm files
+    te_rttms = [os.path.join(args.base_model_dir, 'ch{}/tuning/test.rttm'.format(fold)) for fold in range(len(folds_models))]
+    ftest_rttm = os.path.join(args.base_model_dir, 'fulltest.rttm')
+    cat_cmd = "cat {} > {}".format(' '.join(te_rttms), ftest_rttm)
+    subprocess.call(cat_cmd, shell=True)
+
+    fullref_rttm = os.path.join(args.base_data_path, 'fullref.rttm')
+    test_der = score_der(hyp=ftest_rttm, ref=fullref_rttm)
+    print('Full Test Der: {}'.format(test_der))
+

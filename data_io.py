@@ -60,7 +60,7 @@ def assign_overlaps(events0, events1, events1_labels):
 def segment_labels(segments, rttm, xvectorscp, xvecbase_path=None):
     segment_cols = load_n_col(segments, numpy=True)
     segment_rows = np.array(list(zip(*segment_cols)))
-    rttm_cols = load_n_col(rttm,numpy=True)
+    rttm_cols = load_n_col(rttm, numpy=True)
     vec_utts, vec_paths = load_n_col(xvectorscp, numpy=True)
     if not xvecbase_path:
         xvecbase_path = os.path.dirname(xvectorscp)
@@ -136,7 +136,7 @@ def make_k_fold_dataset(rec_ids, rec_batches, base_path, k=5):
 
         utts, paths, spkrs, seglines = get_subset_files(test_ids, test_batches)
         make_files(test_path, utts, paths, spkrs, seglines)
-
+        
         utts, paths, spkrs, seglines = get_subset_files(train_ids, train_batches)
         make_files(train_path, utts, paths, spkrs, seglines)
 
@@ -171,6 +171,17 @@ def make_files(data_path, utts, paths, spkrs, seglines):
         for utt, path in zip(utts, paths):
             line = '{} {}\n'.format(utt, path)
             fp.write(line)
+
+def make_subset_rttm(fullref_rttm, segments, rttm_outfile):
+    segment_cols = load_n_col(segments, numpy=True)
+    rttm_cols = load_n_col(fullref_rttm, numpy=True)
+    recording_ids = list(set(segment_cols[1]))
+    with open(fullref_rttm) as fp:
+        with open(rttm_outfile, 'w+') as wp:
+            for line in fp:
+                su = line.strip().split()
+                if su[1] in recording_ids:
+                    wp.write(line)
 
 def recombine_matrix(submatrices):
     dim = int(np.sqrt(len(submatrices)))
