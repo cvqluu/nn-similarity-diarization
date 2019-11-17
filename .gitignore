@@ -114,3 +114,6 @@ configs/*.cfg
 !configs/example.cfg
 md-eval.pl
 None
+*.sh
+!run.sh
+!run_data_prep.sh

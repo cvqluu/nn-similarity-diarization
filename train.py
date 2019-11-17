@@ -59,6 +59,7 @@ def parse_config(args):
 
     args.base_model_dir = config['Outputs']['base_model_dir']
     args.checkpoint_interval = config['Outputs'].getint('checkpoint_interval', fallback=1)
+    pprint(vars(args))
     return args
 
 
