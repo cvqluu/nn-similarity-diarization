@@ -12,7 +12,7 @@ Kaldi, python, kaldi_io, scipy, sklearn, torch, CALLHOME dataset
 
 # TL;DR
 
-You can run most of the steps (make train/test folds-> train -> predict -> cluster pipeline with `run.sh`.
+You can run most of the steps (make train/test folds -> train -> predict -> cluster) with `run.sh`.
 
 **NOTE: The Kaldi Data preparation must be run first, follow those instructions up until 'Make train/test folds' and then `run.sh` can be run from inside the repo folder. Make sure to configure the variables at the top of `run.sh` as well as your configured `.cfg` file (see `configs/example.cfg`):**
 
@@ -52,10 +52,10 @@ source path.sh
 
 # Make train/test folds
 
-Changing directory back to where this repo is, run the following command to make the train/test folds, replacing the variables as is necessary. Here `$xvector_dir` is as above and `$folds_path` is the location in which the splits will reside.
+Changing directory back to where this repo is, run the following command to make the train/test folds, replacing the variables as is necessary. Here `$xvector_dir` is as above and `$folds_path` is the location in which the splits will reside: (recommended to use num_folds=5)
 
 ```sh
-python -m scripts.make_kfold_callhome $xvector_dir $KALDI_PATH/egs/callhome_diarization/v2/data/callhome/fullref.rttm $folds_path
+python -m scripts.make_kfold_callhome $xvector_dir $KALDI_PATH/egs/callhome_diarization/v2/data/callhome/fullref.rttm $folds_path $num_folds
 ```
 
 which makes a folder structure like so
@@ -171,7 +171,7 @@ TODO... (still tuning)
 
 # Other issues/todos
 
-* Support for changing the number of folds (will need to be tested)
+* Test changing num_folds
 * Transformer and other architectures (some of which are in models.py)
 * logspace option for cluster thresholds, or some other spacing options
 
