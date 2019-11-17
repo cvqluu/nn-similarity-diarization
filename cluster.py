@@ -178,8 +178,9 @@ def score_der(hyp=None, ref=None, outfile=None, collar=0.25):
     '''
     assert os.path.isfile(hyp)
     assert os.path.isfile(ref)
-    cmd = './md-eval.pl -1 -c {} -s {} -r {} > {}'.format(collar, hyp, ref, outfile)
+    cmd = 'perl md-eval.pl -1 -c {} -s {} -r {} > {}'.format(collar, hyp, ref, outfile)
     subprocess.call(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    assert os.path.isfile(outfile)
     with open(outfile, 'r') as file:
         data = file.read().replace('\n', '')
     der_str = re.search('DIARIZATION\ ERROR\ =\ [0-9]+([.][0-9]+)?', data).group()
