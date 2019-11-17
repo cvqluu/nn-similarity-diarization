@@ -58,12 +58,15 @@ Changing directory back to where this repo is, run the following command to make
 
 ```sh
 python -m scripts.make_kfold_callhome $xvector_dir $KALDI_PATH/egs/callhome_diarization/v2/data/callhome/fullref.rttm $folds_path $num_folds
+
+cp $KALDI_PATH/egs/callhome_diarization/v2/data/callhome/fullref.rttm $folds_path
 ```
 
 which makes a folder structure like so
 
 ```
 folds_path
+├── fullref.rttm
 ├── ch0
 |   ├── train
 |   |   ├── utt2spk
