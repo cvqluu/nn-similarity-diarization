@@ -213,11 +213,12 @@ if __name__ == "__main__":
             #Calc der
             eval_log = os.path.join(tuning_dir, '{}.derlog'.format(i))
             der = score_der(hyp=rttm_outfile, ref=tr_rttm, outfile=eval_log)
-            print('Fold {}, cparam {} \t DER: {}'.format(fold, cparam, der))
+            print('Fold {}, cparam {} \t Train DER: {}'.format(fold, cparam, der))
             if der < best_der[0]:
                 best_der = (der, i)
 
         best_thresh = cparam_range[best_der[1]]
+        print('Best cparam was: {}, clustering test portion using this value...'.format(best_thresh))
 
         te_mat_dir = os.path.join(args.base_model_dir, 'ch{}/te_preds'.format(fold))
         te_npys = glob.glob(os.path.join(te_mat_dir, '*.npy'))
@@ -229,6 +230,7 @@ if __name__ == "__main__":
         make_rttm(te_segs, te_recs, te_mats, test_rttm_outfile, ctype=args.cluster_type, cparam=best_thresh)
 
     # concatenate test rttm files
+    print('Combining predictions into one rttm...')
     te_rttms = [os.path.join(args.base_model_dir, 'ch{}/tuning/test.rttm'.format(fold)) for fold in range(len(folds_models))]
     ftest_rttm = os.path.join(args.base_model_dir, 'fulltest.rttm')
     cat_cmd = "cat {} > {}".format(' '.join(te_rttms), ftest_rttm)

@@ -12,9 +12,18 @@ Kaldi, python, kaldi_io, scipy, sklearn, torch, CALLHOME dataset
 
 # TL;DR
 
-(TODO WIP): You can run the whole recipe with `run.sh`
+You can run most of the steps (make train/test folds-> train -> predict -> cluster pipeline with `run.sh`.
 
-# Data preparation
+**NOTE: The Kaldi Data preparation must be run first, follow those instructions up until 'Make train/test folds' and then `run.sh` can be run from inside the repo folder. Make sure to configure the variables at the top of `run.sh` as well as your configured `.cfg` file (see `configs/example.cfg`):**
+
+```sh
+xvector_dir=/PATH/TO/XVECS #path to extracted xvectors, same as run_data_prep.sh
+KALDI_PATH=/PATH/TO/KALDI_ROOT # path to kaldi root, neede for finding egs folder
+folds_path=/PATH/TO/FOLDS_DATA # path to where the train/test split folds will be stored
+cfg_path=/PATH/TO/CFG # path to cfg file, $folds_path is data_path in the cfg
+```
+
+# Kaldi Data preparation
 
 The data-preparation for this will involve the following steps:
 
@@ -41,6 +50,8 @@ source path.sh
 ./run_data_prep.sh
 ```
 
+# Make train/test folds
+
 Changing directory back to where this repo is, run the following command to make the train/test folds, replacing the variables as is necessary. Here `$xvector_dir` is as above and `$folds_path` is the location in which the splits will reside.
 
 ```sh
@@ -65,26 +76,31 @@ folds_path
 
 # Training
 
-The primary training script `train.py` is mostly defined by the config file which it reads. An example config file is shown in `configs/example.cfg`:
+The primary training script `train.py` is mostly defined by the config file which it reads. An example config file is shown in `configs/example.cfg`. The relevant fields to this section are shown below:
 
 ```ini
 [Datasets]
+# this is $folds_path in the data preparation step (also in run.sh)
 data_path = /PATH/TO/FOLDS_PATH
 
 [Model]
 model_type = lstm
 
 [Hyperparams]
-lr = 0.2
+lr = 0.01
 max_len = 400
 no_cuda = False
 seed = 1234
 num_epochs = 100
+# at the epoch numbers in scheduler_steps, the lr will be multiplied by scheduler_lambda
 scheduler_steps = [40, 80]
 scheduler_lambda = 0.1
 
 [Outputs]
+# this is where models will be saved
 base_model_dir = exp/example_models_folder
+# Interval at which models will be stored for checkpointing purposes
+checkpoint_interval = 1
 ```
 
 The main fields which need to be configured are `data_path` and `base_model_dir`. The first corresponds to `$folds_path` used above and the latter will be the place in which the models are stored.
@@ -95,11 +111,7 @@ Once this cfg file is configured, a model can be trained on a fold like so:
 python train.py --cfg configs/<your_config>.cfg --fold 0
 ```
 
-Alternatively, if you wish to train all folds sequentially with one script:
-
-```sh
-python run_train_ch_folds.py configs/<your_config>.cfg
-```
+This will need to be run (in parallel or sequentially) for each fold [0,1,2,3,4].
 
 This will store `.pt` models into `base_model_dir` in a very similar structure as above:
 
@@ -116,22 +128,52 @@ folds_path
 ├── ...
 ```
 
+# Inference
+
+Processing the folds of data using the final model is done using `predict.py`. This script assumes a file structure produced as above. The similarity matrix predictions for each recording are stored in a `<recording_id>.npy` format in subfolders called `ch*/<tr|te>_preds`.
+
+To produce predictions:
+
+```sh
+python predict.py --cfg configs/<your_config>.cfg
+```
+
 # Evaluation
 
-As mentioned above, the network outputs chunks of a similarity matrix for pairs of embeddings in a recording. To obtain a diarization prediction, spectral clustering is used (in `cluster.py`) with the similarity matrix enhancement described in [1]. Agglomerative clustering is also included in this repo.
+To obtain a diarization prediction, clustering is performed (using `cluster.py`) with the similarity matrix enhancement described in [1]. Like the paper, spectral clustering is included, and agglomerative clustering is also available.
 
-For each fold of the CALLHOME dataset, the best performing cluster threshold on the train set is used for the prediction on the test set.
+For each fold of the CALLHOME dataset, a configurable range of cluster parameter values are evaluated to find the best performing value on the train set. The single best one is then used to cluster that test set. Each test set hypothesis is then combined to create the overall system hypothesis for CALLHOME.
 
-These predictions are then combined to produce the overall system hypothesis for CALLHOME.
+The relevant sections in the configuration file for clustering are as follows:
+
+```ini
+[Clustering]
+# Only 'sc' and 'ahc' are supported
+cluster_type = sc
+
+# The following values are fed into np.linspace to produce a range of parameters to try clustering the train portion over
+# Note: cparam_start must be positive if spectral clustering is used.
+cparam_start = 0.5
+cparam_end = 1.0
+cparam_steps = 20
+```
+
+To run this clustering step:
+
+```sh
+python cluster.py --cfg configs/<your_config>.cfg
+```
 
 # Results
 
-TODO
+TODO... (still tuning)
 
 
 # Other issues/todos
 
-Support for changing the number of folds
+* Support for changing the number of folds (will need to be tested)
+* Transformer and other architectures (some of which are in models.py)
+* logspace option for cluster thresholds, or some other spacing options
 
 # References
 
