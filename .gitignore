@@ -112,3 +112,4 @@ exp/*
 *.txt
 configs/*.cfg
 !configs/example.cfg
+md-eval.pl
