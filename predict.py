@@ -27,7 +27,6 @@ def parse_args():
     parser.add_argument('--cosine', action='store_true', default=False,
                         help='simply takes the cosine sim matrix - used only for basebaseline')
     args = parser.parse_args()
-    pprint(vars(args))
     return args
 
 def parse_config(args):
@@ -44,6 +43,7 @@ def parse_config(args):
     args.no_cuda = config['Hyperparams'].getboolean('no_cuda', fallback=False)
 
     args.base_model_dir = config['Outputs']['base_model_dir']
+    pprint(vars(args))
     return args
 
 def predict_matrices(model, dl_test):

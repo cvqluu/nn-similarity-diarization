@@ -26,7 +26,6 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Find best cluster threshold on train folds and use on test')
     parser.add_argument('--cfg', type=str, default='./configs/example.cfg')
     args = parser.parse_args()
-    pprint(vars(args))
     return args
 
 def parse_config(args):
@@ -52,6 +51,7 @@ def parse_config(args):
         assert (args.cparam_start > 0.0), 'Beta value for SC must be >0'
     args.cparam_end = config['Clustering'].getfloat('cparam_end', fallback=1.0)
     args.cparam_steps = config['Clustering'].getint('cparam_steps', fallback=20)
+    pprint(vars(args))
     return args
 
 def sym(matrix):
