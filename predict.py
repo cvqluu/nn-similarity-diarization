@@ -92,12 +92,15 @@ if __name__ == "__main__":
     for fold in range(len(folds_models)):
         model_dir = os.path.join(args.base_model_dir, 'ch{}'.format(fold))
         model_path = os.path.join(model_dir, 'final_{}'.format(args.num_epochs))
-        base_path = os.path.join(args.data_path, 'ch{}'.format(args.fold))
+        base_path = os.path.join(args.data_path, 'ch{}'.format(fold))
 
         dl_train = dloader(os.path.join(base_path, 'train'), max_len=args.max_len, shuffle=False)
         dl_test = dloader(os.path.join(base_path, 'test'), max_len=args.max_len, shuffle=False)
 
-        if not args.cosine:
+        if args.cosine:
+            te_cm, te_cids = cosine_sim_matrix(dl_test)
+            tr_cm, tr_cids = cosine_sim_matrix(dl_train)
+        else:
             use_cuda = not args.no_cuda and torch.cuda.is_available()
 
             print('-'*10)
@@ -119,10 +122,6 @@ if __name__ == "__main__":
 
             te_cm, te_cids = predfunc(model, dl_test)
             tr_cm, tr_cids = predfunc(model, dl_train)
-
-        else:
-            te_cm, te_cids = cosine_sim_matrix(dl_test)
-            tr_cm, tr_cids = cosine_sim_matrix(dl_train)
 
         
         tr_mat_dir = os.path.join(model_dir, 'tr_preds')
