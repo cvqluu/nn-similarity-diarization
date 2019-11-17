@@ -163,7 +163,13 @@ cparam_end = 1.0
 cparam_steps = 20
 ```
 
-To run this clustering step:
+Before running the clustering step, `md-eval.pl` will need to be obtained, which can be downloaded using:
+
+```sh
+wget https://raw.githubusercontent.com/foundintranslation/Kaldi/master/tools/sctk-2.4.0/src/md-eval/md-eval.pl
+```
+
+Finally:
 
 ```sh
 python cluster.py --cfg configs/<your_config>.cfg

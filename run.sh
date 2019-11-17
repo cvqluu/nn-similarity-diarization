@@ -30,5 +30,8 @@ if [ $stage -le 3 ]; then
     # Clustering
     # Finds best train set cluster parameter and then clusters tests sets using this value
     # combines all and evaluates for all test portions combined
+    if [ ! -f "md-eval.pl" ]; then
+        wget https://raw.githubusercontent.com/foundintranslation/Kaldi/master/tools/sctk-2.4.0/src/md-eval/md-eval.pl
+    fi
     python cluster.py --cfg $cfg_path
 fi

@@ -176,6 +176,8 @@ def score_der(hyp=None, ref=None, outfile=None, collar=0.25):
     Takes in hypothesis rttm and reference rttm and returns the diarization error rate
     Calls md-eval.pl -> writes output to file -> greps for DER value
     '''
+    assert os.path.isfile(hyp)
+    assert os.path.isfile(ref)
     cmd = './md-eval.pl -1 -c {} -s {} -r {} > {}'.format(collar, hyp, ref, outfile)
     subprocess.call(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     with open(outfile, 'r') as file:
@@ -189,6 +191,7 @@ if __name__ == "__main__":
     args = parse_args()
     assert os.path.isfile(args.cfg)
     args = parse_config(args)
+    assert os.path.isfile('./md-eval.pl')
 
     folds_models = glob.glob(os.path.join(args.base_model_dir, 'ch*'))
     for fold in range(len(folds_models)):
