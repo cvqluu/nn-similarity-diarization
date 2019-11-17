@@ -69,8 +69,9 @@ folds_path
 ├── fullref.rttm
 ├── ch0
 |   ├── train
-|   |   ├── utt2spk
+|   |   ├── ref.rttm
 |   |   ├── segments
+|   |   ├── utt2spk
 |   |   └── xvector.scp
 |   └── test
 ├── ch1
@@ -194,6 +195,7 @@ TODO... (still tuning)
 # Other issues/todos
 
 * Test changing num_folds
+* I-vectors instead of x-vectors - with system fusion
 * Transformer and other architectures (some of which are in models.py)
 * logspace option for cluster thresholds, or some other spacing options
 
