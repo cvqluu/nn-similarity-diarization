@@ -236,7 +236,7 @@ if __name__ == "__main__":
     cat_cmd = "cat {} > {}".format(' '.join(te_rttms), ftest_rttm)
     subprocess.call(cat_cmd, shell=True)
 
-    fullref_rttm = os.path.join(args.base_data_path, 'fullref.rttm')
+    fullref_rttm = os.path.join(args.data_path, 'fullref.rttm')
     test_der = score_der(hyp=ftest_rttm, ref=fullref_rttm)
     print('Full Test Der: {}'.format(test_der))
 

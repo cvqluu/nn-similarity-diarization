@@ -11,6 +11,7 @@ num_folds=5 #default num folds is 5
 if [ $stage -le 0 ]; then
     # makes k-fold dataset (default: 5 folds)
     python -m scripts.make_kfold_callhome $xvector_dir $KALDI_PATH/egs/callhome_diarization/v2/data/callhome/fullref.rttm $folds_path $num_folds
+    cp $KALDI_PATH/egs/callhome_diarization/v2/data/callhome/fullref.rttm $folds_path
 fi
 
 if [ $stage -le 1 ]; then
