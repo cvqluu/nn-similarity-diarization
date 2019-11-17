@@ -189,7 +189,15 @@ Fold 0, cparam 0.9105263157894737        Train DER: 14.44
 
 # Results
 
-TODO... (still tuning)
+More results incoming...
+
+| Similarity Scoring Method   | CALLHOME DER  |
+| --------------------------- |--------------:|
+| PLDA Baseline (the paper)   | 8.64%         |
+| BiLSTM (this repo)          | 8.83%         |
+| BiLSTM (the paper)          | 7.73%         |
+
+(the paper) refers to the results reported in [1]
 
 
 # Other issues/todos
