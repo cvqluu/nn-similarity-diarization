@@ -90,6 +90,8 @@ The primary training script `train.py` is mostly defined by the config file whic
 data_path = /PATH/TO/FOLDS_PATH
 
 [Model]
+# Supported models: 'lstm', 'lstm_cos_ws', 'lstm_cos_res'
+# 'lstm' is the same as in the original paper
 model_type = lstm
 
 [Hyperparams]
@@ -191,11 +193,12 @@ Fold 0, cparam 0.9105263157894737        Train DER: 14.44
 
 More results incoming...
 
-| Similarity Scoring Method   | CALLHOME DER  |
-| --------------------------- |--------------:|
-| PLDA Baseline (the paper)   | 8.64%         |
-| BiLSTM (this repo)          | 8.83%         |
-| BiLSTM (the paper)          | 7.73%         |
+| Similarity Scoring Method                   | CALLHOME DER  |
+| ------------------------------------------- |--------------:|
+| x-vector + PLDA + AHC [1]                   | 8.64%         |
+| x-vector + LSTM + SC [1]                    | 7.73%         |
+| x-vector + LSTM + SC [this repo]            | 8.83%         |
+| x-vector + LSTM_CosRes + SC [this repo]     | ---%          |
 
 (the paper) refers to the results reported in [1]
 

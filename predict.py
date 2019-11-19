@@ -36,7 +36,7 @@ def parse_config(args):
     args.data_path = config['Datasets']['data_path']
 
     args.model_type = config['Model'].get('model_type', fallback='lstm')
-    assert args.model_type in ['lstm', 'lstm_cos_ws', 'lstm_cos_res', 'transformer']
+    assert args.model_type in ['lstm', 'lstm_cos_ws', 'lstm_cos_res', 'transformer', 'convcosres']
 
     args.num_epochs = config['Hyperparams'].getint('num_epochs', fallback=100)
     args.max_len = config['Hyperparams'].getint('max_len', fallback=400)
@@ -117,6 +117,9 @@ if __name__ == "__main__":
                 predfunc = predict_matrices
             if args.model_type == 'lstm_cos_ws':
                 model = LSTMSimilarityCosWS()
+                predfunc = predict_matrices
+            if args.model_type == 'convcosres':
+                model = ConvCosResSim()
                 predfunc = predict_matrices
             if args.model_type == 'transformer':
                 assert NotImplementedError

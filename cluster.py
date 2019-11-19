@@ -20,7 +20,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from data_io import (collate_sim_matrices, dloader, load_n_col,
                      sim_matrix_target)
-from models import LSTMSimilarity
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Find best cluster threshold on train folds and use on test')
@@ -33,13 +32,6 @@ def parse_config(args):
     config.read(args.cfg)
 
     args.data_path = config['Datasets']['data_path']
-
-    args.model_type = config['Model'].get('model_type', fallback='lstm')
-    assert args.model_type in ['lstm', 'transformer']
-
-    args.num_epochs = config['Hyperparams'].getint('num_epochs', fallback=100)
-    args.max_len = config['Hyperparams'].getint('max_len', fallback=400)
-    args.no_cuda = config['Hyperparams'].getboolean('no_cuda', fallback=False)
 
     args.base_model_dir = config['Outputs']['base_model_dir']
 

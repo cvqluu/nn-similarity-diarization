@@ -327,3 +327,89 @@ class LSTMTransform(nn.Module):
         x = self.fc2(x)
         sim = self.pdist(x)
         return 1. - sim
+
+
+class ConvSim(nn.Module):
+
+    def __init__(self, input_dim=256):
+        super(ConvSim, self).__init__()
+        self.input_dim = input_dim
+        self.layer1 = nn.Sequential(
+            nn.Conv1d(input_dim, 128, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm1d(128))
+        self.layer2 = nn.Sequential(
+            nn.Conv1d(128, 128, kernel_size=3, stride=1, padding=1, dilation=1),
+            nn.ReLU(),
+            nn.BatchNorm1d(128))
+        self.layer3 = nn.Sequential(
+            nn.Conv1d(128, 128, kernel_size=3, stride=1, padding=1, dilation=2),
+            nn.ReLU(),
+            nn.BatchNorm1d(128))
+        self.layer4 = nn.Sequential(
+            nn.Conv1d(128, 128, kernel_size=3, stride=1, padding=3, dilation=3),
+            nn.ReLU(),
+            nn.BatchNorm1d(128))
+        self.layer5 = nn.Sequential(
+            nn.Conv1d(128, 512, kernel_size=3, stride=1, padding=3, dilation=3),
+            nn.ReLU(),
+            nn.BatchNorm1d(512))
+        self.layer6 = nn.Sequential(
+            nn.Conv1d(512, 1, kernel_size=1, stride=1, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm1d(1))
+    
+    def forward(self, x):
+        if x.shape[-1] == self.input_dim:
+            x = x.permute(0,2,1)
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.layer5(x)
+        x = self.layer6(x)
+        return x.squeeze(1)
+
+class ConvCosResSim(nn.Module):
+
+    def __init__(self, input_dim=256):
+        super(ConvCosResSim, self).__init__()
+        self.pdistlayer = pCosineSiamese()
+        self.input_dim = input_dim
+        self.layer1 = nn.Sequential(
+            nn.Conv1d(input_dim, 128, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm1d(128))
+        self.layer2 = nn.Sequential(
+            nn.Conv1d(128, 128, kernel_size=3, stride=1, padding=1, dilation=1),
+            nn.ReLU(),
+            nn.BatchNorm1d(128))
+        self.layer3 = nn.Sequential(
+            nn.Conv1d(128, 128, kernel_size=3, stride=1, padding=1, dilation=2),
+            nn.ReLU(),
+            nn.BatchNorm1d(128))
+        self.layer4 = nn.Sequential(
+            nn.Conv1d(128, 128, kernel_size=3, stride=1, padding=3, dilation=3),
+            nn.ReLU(),
+            nn.BatchNorm1d(128))
+        self.layer5 = nn.Sequential(
+            nn.Conv1d(128, 512, kernel_size=3, stride=1, padding=3, dilation=3),
+            nn.ReLU(),
+            nn.BatchNorm1d(512))
+        self.layer6 = nn.Sequential(
+            nn.Conv1d(512, 1, kernel_size=1, stride=1, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm1d(1))
+    
+    def forward(self, x):
+        cs = self.pdistlayer(x)
+        if x.shape[-1] == self.input_dim:
+            x = x.permute(0,2,1)
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.layer5(x)
+        x = self.layer6(x).squeeze(1)
+        x += cs
+        return x

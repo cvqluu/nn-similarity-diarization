@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from data_io import dloader
-from models import LSTMSimilarity, LSTMSimilarityCosWS, LSTMSimilarityCosRes
+from models import LSTMSimilarity, LSTMSimilarityCosWS, LSTMSimilarityCosRes, ConvCosResSim
 from tensorboardX import SummaryWriter
 from torch.nn.utils.rnn import (PackedSequence, pack_padded_sequence,
                                 pad_sequence)
@@ -47,7 +47,7 @@ def parse_config(args):
     args.data_path = config['Datasets']['data_path']
 
     args.model_type = config['Model'].get('model_type', fallback='lstm')
-    assert args.model_type in ['lstm', 'lstm_cos_ws', 'lstm_cos_res', 'transformer']
+    assert args.model_type in ['lstm', 'lstm_cos_ws', 'lstm_cos_res', 'transformer', 'convcosres']
 
     args.lr = config['Hyperparams'].getfloat('lr', fallback=0.2)
     args.max_len = config['Hyperparams'].getint('max_len', fallback=400)
@@ -83,6 +83,8 @@ def train():
         model = LSTMSimilarityCosRes()
     if args.model_type == 'lstm_cos_ws':
         model = LSTMSimilarityCosWS()
+    if args.model_type == 'convcosres':
+        model = ConvCosResSim()
     if args.model_type == 'transformer':
         assert NotImplementedError
 
@@ -179,7 +181,7 @@ if __name__ == "__main__":
     os.makedirs(args.base_model_dir, exist_ok=True)
     args.model_dir = os.path.join(args.base_model_dir, 'ch{}'.format(args.fold))
     args.log_file = os.path.join(args.model_dir, 'exp_out.log')
-    os.makedirs(args.model_dir)
+    os.makedirs(args.model_dir, exist_ok=True)
 
     base_path = os.path.join(args.data_path, 'ch{}'.format(args.fold))
     assert os.path.isdir(base_path)
