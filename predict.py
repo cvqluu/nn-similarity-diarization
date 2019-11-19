@@ -18,7 +18,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from data_io import (collate_sim_matrices, dloader, load_n_col,
                      sim_matrix_target)
-from models import LSTMSimilarity, LSTMSimilarityCos, XTransformerMask
+from models import LSTMSimilarity, LSTMSimilarityCosWS, LSTMSimilarityCosRes
 
 
 def parse_args():
@@ -36,7 +36,7 @@ def parse_config(args):
     args.data_path = config['Datasets']['data_path']
 
     args.model_type = config['Model'].get('model_type', fallback='lstm')
-    assert args.model_type in ['lstm', 'transformer']
+    assert args.model_type in ['lstm', 'lstm_cos_ws', 'lstm_cos_res', 'transformer']
 
     args.num_epochs = config['Hyperparams'].getint('num_epochs', fallback=100)
     args.max_len = config['Hyperparams'].getint('max_len', fallback=400)
@@ -111,6 +111,12 @@ if __name__ == "__main__":
         else:
             if args.model_type == 'lstm':
                 model = LSTMSimilarity()
+                predfunc = predict_matrices
+            if args.model_type == 'lstm_cos_res':
+                model = LSTMSimilarityCosRes()
+                predfunc = predict_matrices
+            if args.model_type == 'lstm_cos_ws':
+                model = LSTMSimilarityCosWS()
                 predfunc = predict_matrices
             if args.model_type == 'transformer':
                 assert NotImplementedError

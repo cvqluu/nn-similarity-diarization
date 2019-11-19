@@ -198,6 +198,7 @@ TODO... (still tuning)
 * I-vectors instead of x-vectors - with system fusion
 * Transformer and other architectures (some of which are in models.py)
 * logspace option for cluster thresholds, or some other spacing options
+* Conv architectures
 
 # References
 
