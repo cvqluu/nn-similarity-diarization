@@ -16,7 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from data_io import dloader
 from models import LSTMSimilarity, LSTMSimilarityCosWS, LSTMSimilarityCosRes, ConvCosResSim
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 from torch.nn.utils.rnn import (PackedSequence, pack_padded_sequence,
                                 pad_sequence)
 
@@ -148,6 +148,7 @@ def train():
             model.to(device).train()
             test_loss = test(model, device, criterion)
             print('TEST LOSS: {}'.format(test_loss))
+            writer.add_scalar('test_loss', test_loss, iterations)
             model.train()
         
     # ---- Final model saving -----
@@ -163,7 +164,7 @@ def test(model, device, criterion):
     with torch.no_grad():
         total_batches = 0
         total_loss = 0
-        for batch_idx, (feats, labels, _) in enumerate(dl_test.get_batches()):
+        for batch_idx, (feats, labels, _) in enumerate(tqdm(dl_test.get_batches(), total=len(dl_test))):
             feats = torch.FloatTensor(feats).to(device)
             labels = torch.FloatTensor(labels).to(device)
             out = model(feats)

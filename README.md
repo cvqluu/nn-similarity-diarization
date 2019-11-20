@@ -198,7 +198,8 @@ More results incoming...
 | x-vector + PLDA + AHC [1]                   | 8.64%         |
 | x-vector + LSTM + SC [1]                    | 7.73%         |
 | x-vector + LSTM + SC [this repo]            | 8.83%         |
-| x-vector + LSTM_CosRes + SC [this repo]     | ---%          |
+| x-vector + LSTM_CosRes + SC [this repo]     | 9.12%         |
+| x-vector + TDNNs + SC [this repo]           | ----%         |
 
 (the paper) refers to the results reported in [1]
 
@@ -210,6 +211,7 @@ More results incoming...
 * Transformer and other architectures (some of which are in models.py)
 * logspace option for cluster thresholds, or some other spacing options
 * Conv architectures
+* investigate data aug by: adding noise to x-vecs, swapping same speaker x-vecs around, sampling from learned GMM per recording speakers.
 
 # References
 

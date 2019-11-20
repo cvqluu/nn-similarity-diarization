@@ -335,27 +335,27 @@ class ConvSim(nn.Module):
         super(ConvSim, self).__init__()
         self.input_dim = input_dim
         self.layer1 = nn.Sequential(
-            nn.Conv1d(input_dim, 128, kernel_size=3, stride=1, padding=1),
+            nn.Conv1d(input_dim, 32, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.BatchNorm1d(128))
+            nn.BatchNorm1d(32))
         self.layer2 = nn.Sequential(
-            nn.Conv1d(128, 128, kernel_size=3, stride=1, padding=1, dilation=1),
+            nn.Conv1d(32, 32, kernel_size=3, stride=1, padding=1, dilation=1),
             nn.ReLU(),
-            nn.BatchNorm1d(128))
+            nn.BatchNorm1d(32))
         self.layer3 = nn.Sequential(
-            nn.Conv1d(128, 128, kernel_size=3, stride=1, padding=1, dilation=2),
+            nn.Conv1d(32, 32, kernel_size=3, stride=1, padding=1, dilation=2),
             nn.ReLU(),
-            nn.BatchNorm1d(128))
+            nn.BatchNorm1d(32))
         self.layer4 = nn.Sequential(
-            nn.Conv1d(128, 128, kernel_size=3, stride=1, padding=3, dilation=3),
+            nn.Conv1d(32, 32, kernel_size=3, stride=1, padding=3, dilation=3),
             nn.ReLU(),
-            nn.BatchNorm1d(128))
+            nn.BatchNorm1d(32))
         self.layer5 = nn.Sequential(
-            nn.Conv1d(128, 512, kernel_size=3, stride=1, padding=3, dilation=3),
+            nn.Conv1d(32, 32, kernel_size=3, stride=1, padding=3, dilation=3),
             nn.ReLU(),
-            nn.BatchNorm1d(512))
+            nn.BatchNorm1d(32))
         self.layer6 = nn.Sequential(
-            nn.Conv1d(512, 1, kernel_size=1, stride=1, padding=1),
+            nn.Conv1d(32, 1, kernel_size=1, stride=1, padding=1),
             nn.ReLU(),
             nn.BatchNorm1d(1))
     
@@ -376,28 +376,33 @@ class ConvCosResSim(nn.Module):
         super(ConvCosResSim, self).__init__()
         self.pdistlayer = pCosineSiamese()
         self.input_dim = input_dim
+        # self.drop1 = nn.Dropout()
+        # self.drop2 = nn.Dropout()
+        # self.drop3 = nn.Dropout()
+        # self.drop4 = nn.Dropout()
+        # self.drop5 = nn.Dropout()
         self.layer1 = nn.Sequential(
-            nn.Conv1d(input_dim, 128, kernel_size=3, stride=1, padding=1),
+            nn.Conv1d(input_dim, 32, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.BatchNorm1d(128))
+            nn.BatchNorm1d(32))
         self.layer2 = nn.Sequential(
-            nn.Conv1d(128, 128, kernel_size=3, stride=1, padding=1, dilation=1),
+            nn.Conv1d(32, 32, kernel_size=3, stride=1, padding=1, dilation=1),
             nn.ReLU(),
-            nn.BatchNorm1d(128))
+            nn.BatchNorm1d(32))
         self.layer3 = nn.Sequential(
-            nn.Conv1d(128, 128, kernel_size=3, stride=1, padding=1, dilation=2),
+            nn.Conv1d(32, 32, kernel_size=3, stride=1, padding=1, dilation=2),
             nn.ReLU(),
-            nn.BatchNorm1d(128))
+            nn.BatchNorm1d(32))
         self.layer4 = nn.Sequential(
-            nn.Conv1d(128, 128, kernel_size=3, stride=1, padding=3, dilation=3),
+            nn.Conv1d(32, 32, kernel_size=3, stride=1, padding=3, dilation=3),
             nn.ReLU(),
-            nn.BatchNorm1d(128))
+            nn.BatchNorm1d(32))
         self.layer5 = nn.Sequential(
-            nn.Conv1d(128, 512, kernel_size=3, stride=1, padding=3, dilation=3),
+            nn.Conv1d(32, 32, kernel_size=3, stride=1, padding=3, dilation=3),
             nn.ReLU(),
-            nn.BatchNorm1d(512))
+            nn.BatchNorm1d(32))
         self.layer6 = nn.Sequential(
-            nn.Conv1d(512, 1, kernel_size=1, stride=1, padding=1),
+            nn.Conv1d(32, 1, kernel_size=1, stride=1, padding=1),
             nn.ReLU(),
             nn.BatchNorm1d(1))
     
@@ -406,10 +411,20 @@ class ConvCosResSim(nn.Module):
         if x.shape[-1] == self.input_dim:
             x = x.permute(0,2,1)
         x = self.layer1(x)
+        # x = self.drop1(x)
         x = self.layer2(x)
+        # x = self.drop2(x)
         x = self.layer3(x)
+        # x = self.drop3(x)
         x = self.layer4(x)
+        # x = self.drop4(x)
         x = self.layer5(x)
+        # x = self.drop5(x)
         x = self.layer6(x).squeeze(1)
         x += cs
         return x
+
+    def set_dropout_p(self, p):
+        for layer in self.children():
+            if isinstance(layer, nn.Dropout):
+                layer.p = p

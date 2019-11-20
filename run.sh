@@ -17,7 +17,7 @@ fi
 if [ $stage -le 1 ]; then
     # train on each fold of data sequentially
     for i in `seq 0 $(( $num_folds - 1 ))`; do
-        python train.py --cfg $cfg_path --fold $i
+        python train.py --cfg $cfg_path --fold $i || exit 1;
     done
 fi
 
