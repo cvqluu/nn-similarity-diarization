@@ -93,19 +93,13 @@ def pairwise_cat_matrix(xvecs, labels):
     xvecs: (seq_len, d_xvec)
     labels: (seq_len)
     '''
-    matrix = []
-    label_matrix = []
-    for i in range(len(xvecs)):
-        row = []
-        label_row = []
-        for j in range(len(xvecs)):
-            entry = np.concatenate([xvecs[i], xvecs[j]], axis=0)
-            entry_label = float(labels[i] == labels[j])
-            row.append(entry)
-            label_row.append(entry_label)
-        matrix.append(np.vstack(row))
-        label_matrix.append(label_row)
-    return np.array(matrix), np.array(label_matrix)
+    xvecs = np.array(xvecs)
+    seq_len, d_xvec = xvecs.shape
+    xproject = np.tile(xvecs, seq_len).reshape(seq_len, seq_len, d_xvec)
+    yproject = np.swapaxes(xproject, 0, 1)
+    matrix = np.concatenate([xproject, yproject], axis=-1)
+    label_matrix = sim_matrix_target(labels)
+    return np.array(matrix), label_matrix
 
 def sim_matrix_target(labels):
     le = LabelEncoder()
