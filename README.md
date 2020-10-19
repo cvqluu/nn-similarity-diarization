@@ -10,7 +10,7 @@ The basic concept behind this method is to learn the similarity scoring matrix n
 
 ## Requirements
 
-Kaldi, python, kaldi_io, scipy, sklearn, torch, CALLHOME dataset
+Kaldi, python, kaldi_io, scipy, sklearn, torch (tested on torch ver. 1.3.0), CALLHOME dataset
 
 # TL;DR
 
