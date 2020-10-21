@@ -7,7 +7,7 @@ if __name__ == "__main__":
     xvector_dir = sys.argv[1]
     rttm = sys.argv[2]
     base_path = sys.argv[3]
-    num_folds = sys.argv[4]
+    num_folds = int(sys.argv[4])
 
     segments = os.path.join(xvector_dir, 'segments')
     xvectorscp = os.path.join(xvector_dir, 'xvector.scp')
